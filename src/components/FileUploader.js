@@ -6,13 +6,15 @@ import colors from '@/app/colors';
 export default function FileUploader({ onFileProcessed, disabled }) {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState(null);
+  const [error, setError] = useState(null);
 
   const handleFile = useCallback((file) => {
     if (!file) return;
     if (!file.name.match(/\.xlsx?$/i)) {
-      alert('יש להעלות קובץ אקסל (.xls / .xlsx)');
+      setError('קובץ לא נכון הועלה — יש להעלות קובץ אקסל (.xls / .xlsx)');
       return;
     }
+    setError(null);
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -82,6 +84,11 @@ export default function FileUploader({ onFileProcessed, disabled }) {
           </>
         )}
       </div>
+      {error && (
+        <p className="mt-3 text-sm font-medium" style={{ color: colors.red }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
