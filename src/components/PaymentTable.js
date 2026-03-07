@@ -190,7 +190,7 @@ export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRet
           <button
             onClick={onAdd}
             disabled={generating}
-            className="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+            className="rounded-xl px-6 py-3 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: colors.gold, color: colors.black }}
           >
             + הוסף שורה

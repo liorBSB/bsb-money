@@ -137,7 +137,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-6 max-w-[1400px] mx-auto">
-      <header className="mb-8">
+      <header className="mb-8 text-center">
         <h1 className="text-3xl font-bold" style={{ color: colors.primaryGreen }}>
           BSB Money
         </h1>
@@ -227,7 +227,7 @@ export default function Home() {
               <button
                 onClick={handleGenerate}
                 disabled={generating || pendingCount === 0}
-                className="rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-40"
+                className="rounded-xl px-8 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
               >
                 {generating ? 'מעבד...' : 'הפק קבלות'}
@@ -236,7 +236,7 @@ export default function Home() {
               {!generating && done && errorCount > 0 && (
                 <button
                   onClick={handleRetryAllFailed}
-                  className="rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
+                  className="rounded-xl px-8 py-3.5 text-base font-semibold transition-colors hover:opacity-90"
                   style={{ backgroundColor: colors.red, color: '#fff' }}
                 >
                   נסה שוב להפיק קבלות שהחזירו שגיאה ({errorCount})
@@ -250,16 +250,16 @@ export default function Home() {
                 className="mt-4 pt-4 flex items-center gap-3 flex-wrap"
                 style={{ borderTop: `1px solid ${colors.gray400}` }}
               >
-                <span className="text-xs font-medium ml-1" style={{ color: colors.muted }}>
+                <span className="text-sm font-medium ml-1" style={{ color: colors.muted }}>
                   הורדות:
                 </span>
                 {successCount > 0 && (
                   <button
                     onClick={handleDownloadSuccess}
-                    className="rounded-lg px-4 py-2 text-xs font-medium transition-colors hover:opacity-90 flex items-center gap-1.5"
+                    className="rounded-xl px-6 py-3 text-base font-semibold transition-colors hover:opacity-90 flex items-center gap-2"
                     style={{ backgroundColor: colors.green, color: '#fff' }}
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
                     </svg>
                     דוח תשלומים וקבלות
@@ -268,10 +268,10 @@ export default function Home() {
                 {errorCount > 0 && (
                   <button
                     onClick={handleDownloadErrors}
-                    className="rounded-lg px-4 py-2 text-xs font-medium transition-colors hover:opacity-90 flex items-center gap-1.5"
+                    className="rounded-xl px-6 py-3 text-base font-semibold transition-colors hover:opacity-90 flex items-center gap-2"
                     style={{ backgroundColor: colors.red, color: '#fff' }}
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
                     </svg>
                     שגויים ({errorCount})
