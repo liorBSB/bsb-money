@@ -164,8 +164,8 @@ export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRet
                     <button
                       onClick={() => onRetry(record.id)}
                       disabled={generating}
-                      className="text-xs rounded px-2 py-1 transition-colors hover:opacity-80 disabled:opacity-30"
-                      style={{ color: colors.secondaryText }}
+                      className="rounded-lg px-3 py-2 text-base font-bold transition-colors hover:opacity-80 disabled:opacity-30"
+                      style={{ backgroundColor: colors.red, color: '#fff' }}
                       title="נסה שוב"
                     >
                       ↻

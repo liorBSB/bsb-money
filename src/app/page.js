@@ -147,6 +147,9 @@ export default function Home() {
       </header>
 
       <section className="mb-6">
+        <p className="mb-3 text-sm font-medium" style={{ color: colors.muted }}>
+          יש להעלות את קובץ האקסל שמתקבל ממערכת שקד
+        </p>
         <FileUploader onFileProcessed={handleFileProcessed} disabled={generating} />
       </section>
 
@@ -161,31 +164,53 @@ export default function Home() {
             generating={generating}
           />
 
-          <div className="mt-6 flex items-center gap-4 flex-wrap">
-            <button
-              onClick={handleGenerate}
-              disabled={generating || pendingCount === 0}
-              className="rounded-xl px-6 py-3 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
-            >
-              {generating
-                ? `מעבד... ${progress.current}/${progress.total}`
-                : 'הפק קבלות'}
-            </button>
+          <div
+            className="mt-6 rounded-xl border p-5"
+            style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
+          >
+            {/* Status counters */}
+            <div className="flex items-center gap-6 mb-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: colors.primaryGreen }}
+                />
+                <span className="text-sm" style={{ color: colors.text }}>
+                  ממתינים: <strong>{pendingCount}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: colors.green }}
+                />
+                <span className="text-sm" style={{ color: colors.text }}>
+                  הצליחו: <strong>{successCount}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: colors.red }}
+                />
+                <span className="text-sm" style={{ color: colors.text }}>
+                  נכשלו: <strong>{errorCount}</strong>
+                </span>
+              </div>
+            </div>
 
-            {!generating && errorCount > 0 && pendingCount === 0 && (
-              <button
-                onClick={handleRetryAllFailed}
-                className="rounded-xl px-5 py-3 text-base font-semibold transition-colors hover:opacity-90"
-                style={{ backgroundColor: colors.red, color: '#fff' }}
-              >
-                אפס שגויים לשליחה מחדש ({errorCount})
-              </button>
-            )}
-
+            {/* Progress bar */}
             {generating && (
-              <div className="flex-1 max-w-xs">
-                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: colors.gray400 }}>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium" style={{ color: colors.muted }}>
+                    מעבד קבלות...
+                  </span>
+                  <span className="text-xs font-semibold" style={{ color: colors.primaryGreen }}>
+                    {progress.current}/{progress.total}
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: colors.gray400 }}>
                   <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{
@@ -197,29 +222,61 @@ export default function Home() {
               </div>
             )}
 
-            {done && (
-              <div className="flex items-center gap-3">
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleGenerate}
+                disabled={generating || pendingCount === 0}
+                className="rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-40"
+                style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
+              >
+                {generating ? 'מעבד...' : 'הפק קבלות'}
+              </button>
+
+              {!generating && done && errorCount > 0 && (
+                <button
+                  onClick={handleRetryAllFailed}
+                  className="rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
+                  style={{ backgroundColor: colors.red, color: '#fff' }}
+                >
+                  נסה שוב להפיק קבלות שהחזירו שגיאה ({errorCount})
+                </button>
+              )}
+            </div>
+
+            {/* Download section */}
+            {done && (successCount > 0 || errorCount > 0) && (
+              <div
+                className="mt-4 pt-4 flex items-center gap-3 flex-wrap"
+                style={{ borderTop: `1px solid ${colors.gray400}` }}
+              >
+                <span className="text-xs font-medium ml-1" style={{ color: colors.muted }}>
+                  הורדות:
+                </span>
                 {successCount > 0 && (
                   <button
                     onClick={handleDownloadSuccess}
-                    className="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
+                    className="rounded-lg px-4 py-2 text-xs font-medium transition-colors hover:opacity-90 flex items-center gap-1.5"
                     style={{ backgroundColor: colors.green, color: '#fff' }}
                   >
-                    הורד דוח תשלומים ומספרי קבלות
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+                    </svg>
+                    דוח תשלומים וקבלות
                   </button>
                 )}
                 {errorCount > 0 && (
                   <button
                     onClick={handleDownloadErrors}
-                    className="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
+                    className="rounded-lg px-4 py-2 text-xs font-medium transition-colors hover:opacity-90 flex items-center gap-1.5"
                     style={{ backgroundColor: colors.red, color: '#fff' }}
                   >
-                    הורד שגויים ({errorCount})
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+                    </svg>
+                    שגויים ({errorCount})
                   </button>
                 )}
-                <span className="text-sm" style={{ color: colors.muted }}>
-                  {successCount} הצליחו, {errorCount} נכשלו
-                </span>
               </div>
             )}
           </div>
