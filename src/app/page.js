@@ -23,15 +23,27 @@ export default function Home() {
     return { month: now.getMonth(), year: now.getFullYear() };
   });
   const [crmLoading, setCrmLoading] = useState(false);
+  const [fileError, setFileError] = useState(null);
 
   const handleFileProcessed = useCallback((arrayBuffer, name) => {
-    const parsed = processBankFile(arrayBuffer);
-    setRecords(parsed);
-    setFileName(name);
-    setDone(false);
-    setProgress({ current: 0, total: 0 });
-    setCrmRecords([]);
-    setAccountIdMap(null);
+    try {
+      const parsed = processBankFile(arrayBuffer);
+      if (!parsed.length) {
+        setFileError('לא נמצאו רשומות תקינות בקובץ — יש לוודא שזהו הקובץ הנכון ממערכת שקד');
+        setRecords([]);
+        return;
+      }
+      setFileError(null);
+      setRecords(parsed);
+      setFileName(name);
+      setDone(false);
+      setProgress({ current: 0, total: 0 });
+      setCrmRecords([]);
+      setAccountIdMap(null);
+    } catch (err) {
+      setFileError(err.message);
+      setRecords([]);
+    }
   }, []);
 
   const handleUpdate = useCallback((id, key, value) => {
@@ -150,7 +162,7 @@ export default function Home() {
         <p className="mb-3 text-sm font-medium" style={{ color: colors.muted }}>
           יש להעלות את קובץ האקסל שמתקבל ממערכת שקד
         </p>
-        <FileUploader onFileProcessed={handleFileProcessed} disabled={generating} />
+        <FileUploader onFileProcessed={handleFileProcessed} disabled={generating} externalError={fileError} />
       </section>
 
       {records.length > 0 && (

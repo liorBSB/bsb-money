@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import colors from '@/app/colors';
 
-export default function FileUploader({ onFileProcessed, disabled }) {
+export default function FileUploader({ onFileProcessed, disabled, externalError }) {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState(null);
   const [error, setError] = useState(null);
@@ -84,9 +84,9 @@ export default function FileUploader({ onFileProcessed, disabled }) {
           </>
         )}
       </div>
-      {error && (
+      {(error || externalError) && (
         <p className="mt-3 text-sm font-medium" style={{ color: colors.red }}>
-          {error}
+          {error || externalError}
         </p>
       )}
     </div>

@@ -40,8 +40,11 @@ export function processBankFile(arrayBuffer) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-  if (!data.length || (data[0] && data[0].length < 10)) {
-    return [];
+  if (!data.length) {
+    throw new Error('הקובץ ריק — אין נתונים בגיליון');
+  }
+  if (data[0] && data[0].length < 15) {
+    throw new Error('הקובץ לא תואם את הפורמט הנדרש — חסרות עמודות. יש להעלות את הקובץ שמתקבל ממערכת שקד');
   }
 
   const grouped = [];
