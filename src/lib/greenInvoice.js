@@ -33,8 +33,11 @@ async function getToken() {
   }, 15000);
 
   const data = await res.json();
-  if (data.errorCode !== 0) {
+  if (data.errorCode && data.errorCode !== 0) {
     throw new Error(`Auth failed: ${data.errorMessage || 'Unknown error'}`);
+  }
+  if (!data.token) {
+    throw new Error('Auth failed: no token in response');
   }
   return data.token;
 }

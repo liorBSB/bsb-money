@@ -71,7 +71,7 @@ export default function Home() {
     setDone(false);
   }, []);
 
-  const runGenerate = useCallback(async (toProcess) => {
+  const runGenerate = useCallback(async (toProcess, { markDone = true } = {}) => {
     setGenerating(true);
     setProgress({ current: 0, total: toProcess.length });
 
@@ -87,7 +87,7 @@ export default function Home() {
         setProgress(prev => ({ ...prev, current: i + 1 }));
       }
 
-      setDone(true);
+      if (markDone) setDone(true);
     } catch (err) {
       alert('שגיאה באימות: ' + err.message);
     } finally {
@@ -95,16 +95,40 @@ export default function Home() {
     }
   }, []);
 
+  const getPending = useCallback(() =>
+    records.filter(r => r.receiptStatus === 'pending' && r.name && r.amount > 0),
+    [records]
+  );
+
   const handleGenerate = useCallback(async () => {
-    const pending = records.filter(r => r.receiptStatus === 'pending' && r.name && r.amount > 0);
+    const pending = getPending();
     if (!pending.length) {
       alert('אין רשומות תקינות לשליחה');
       return;
     }
-    // Defer to avoid Next.js Server Action hanging in dev
     await new Promise(r => setTimeout(r, 0));
     await runGenerate(pending);
-  }, [records, runGenerate]);
+  }, [getPending, runGenerate]);
+
+  const handleTestFirst = useCallback(async () => {
+    const first = getPending()[0];
+    if (!first) {
+      alert('אין רשומה תקינה לבדיקה');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 0));
+    await runGenerate([first], { markDone: false });
+  }, [getPending, runGenerate]);
+
+  const handleNextOne = useCallback(async () => {
+    const next = getPending()[0];
+    if (!next) {
+      alert('אין עוד רשומות ממתינות');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 0));
+    await runGenerate([next], { markDone: false });
+  }, [getPending, runGenerate]);
 
   const handleDownloadSuccess = useCallback(() => {
     const buf = exportToExcel(records, 'success');
@@ -236,13 +260,35 @@ export default function Home() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-3 flex-wrap">
+              {pendingCount > 0 && successCount === 0 && (
+                <button
+                  onClick={handleTestFirst}
+                  disabled={generating}
+                  className="rounded-xl px-6 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40 border-2"
+                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen, backgroundColor: '#fff' }}
+                >
+                  {generating ? 'בודק...' : 'בדיקה — הפק קבלה ראשונה בלבד'}
+                </button>
+              )}
+
+              {pendingCount > 0 && (
+                <button
+                  onClick={handleNextOne}
+                  disabled={generating}
+                  className="rounded-xl px-6 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40 border-2"
+                  style={{ borderColor: colors.gold, color: colors.gold, backgroundColor: '#fff' }}
+                >
+                  {generating ? 'מעבד...' : `הפק הבאה (${pendingCount} נותרו)`}
+                </button>
+              )}
+
               <button
                 onClick={handleGenerate}
                 disabled={generating || pendingCount === 0}
                 className="rounded-xl px-8 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
               >
-                {generating ? 'מעבד...' : 'הפק קבלות'}
+                {generating ? 'מעבד...' : `הפק את כל הקבלות (${pendingCount})`}
               </button>
 
               {!generating && done && errorCount > 0 && (

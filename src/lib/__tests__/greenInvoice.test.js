@@ -38,7 +38,7 @@ describe('authenticate', () => {
   });
 
   it('sends correct auth payload and returns token', async () => {
-    mockFetchResponse({ errorCode: 0, token: 'jwt-abc-123' });
+    mockFetchResponse({ token: 'jwt-abc-123', expires: 1772966873 });
 
     const token = await authenticate();
 
@@ -48,6 +48,13 @@ describe('authenticate', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: 'test-key', secret: 'test-secret' }),
     }));
+  });
+
+  it('also works when response includes errorCode 0', async () => {
+    mockFetchResponse({ errorCode: 0, token: 'jwt-abc-123' });
+
+    const token = await authenticate();
+    expect(token).toBe('jwt-abc-123');
   });
 
   it('throws on auth failure', async () => {
@@ -60,6 +67,12 @@ describe('authenticate', () => {
     mockFetchResponse({ errorCode: 1 });
 
     await expect(authenticate()).rejects.toThrow('Auth failed: Unknown error');
+  });
+
+  it('throws when response has no token', async () => {
+    mockFetchResponse({});
+
+    await expect(authenticate()).rejects.toThrow('Auth failed: no token in response');
   });
 });
 
