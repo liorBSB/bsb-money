@@ -19,12 +19,7 @@ const DISPLAY_COLUMNS = [
   { key: 'CurrencyIsoCode', label: 'CurrencyIsoCode', width: '80px' },
 ];
 
-const MONTH_OPTIONS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
-
-export default function CrmTable({ crmRecords, onMonthChange, selectedMonth, onAccountIdChange }) {
+export default function CrmTable({ crmRecords, selectedMonth, onAccountIdChange }) {
   const matchedCount = useMemo(
     () => crmRecords.filter(r => r._matched).length,
     [crmRecords]
@@ -41,35 +36,10 @@ export default function CrmTable({ crmRecords, onMonthChange, selectedMonth, onA
 
   return (
     <div className="mt-10">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div className="mb-4">
         <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
           טבלת CRM לייצוא
         </h2>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-sm font-medium" style={{ color: colors.text }}>
-            חודש עבודה:
-          </label>
-          <select
-            value={selectedMonth.month}
-            onChange={e => onMonthChange({ ...selectedMonth, month: Number(e.target.value) })}
-            className="rounded border px-2 py-1.5 text-sm"
-            style={{ borderColor: colors.gray400 }}
-          >
-            {MONTH_OPTIONS.map((label, idx) => (
-              <option key={idx} value={idx}>{label}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={selectedMonth.year}
-            onChange={e => onMonthChange({ ...selectedMonth, year: Number(e.target.value) })}
-            className="rounded border px-2 py-1.5 text-sm w-20"
-            style={{ borderColor: colors.gray400 }}
-            min={2020}
-            max={2040}
-          />
-        </div>
       </div>
 
       {unmatchedCount > 0 && (

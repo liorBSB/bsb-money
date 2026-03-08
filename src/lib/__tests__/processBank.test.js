@@ -4,6 +4,8 @@ import { processBankFile, createEmptyRecord, exportToExcel } from '../processBan
 
 vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-1234' });
 
+const selectedMonth = { month: 0, year: 2025 };
+
 function buildExcelBuffer(rows) {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
@@ -27,7 +29,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'דני לוי', amount: 300, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe('יוסי כהן');
@@ -43,7 +45,7 @@ describe('processBankFile', () => {
       makeRow({ name: '', amount: 50, condition: 'Y' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('אבי');
@@ -58,7 +60,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'לקוח אמיתי', amount: 500, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('לקוח אמיתי');
@@ -71,7 +73,7 @@ describe('processBankFile', () => {
       makeRow({ name: '', amount: 200, condition: 'Y' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].amount).toBe(300); // 100 + 200, skipping the 999
@@ -84,7 +86,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'תקין', amount: 50, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('תקין');
@@ -95,7 +97,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'זיכוי', amount: -150, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].amount).toBe(-150);
@@ -106,7 +108,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'טקסט', amount: '₪1,234.56', condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].amount).toBe(1235); // Math.round(1234.56)
@@ -117,7 +119,7 @@ describe('processBankFile', () => {
       makeRow({ name: '\u200eשלום\u200f', amount: 100, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('שלום');
@@ -128,18 +130,18 @@ describe('processBankFile', () => {
       makeRow({ name: 12345, amount: 100, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('12345');
   });
 
-  it('returns empty array for empty or narrow spreadsheet', () => {
+  it('throws for empty or narrow spreadsheet', () => {
     const narrow = buildExcelBuffer([['a', 'b', 'c']]);
-    expect(processBankFile(narrow)).toEqual([]);
+    expect(() => processBankFile(narrow, selectedMonth)).toThrow();
 
     const empty = buildExcelBuffer([]);
-    expect(processBankFile(empty)).toEqual([]);
+    expect(() => processBankFile(empty, selectedMonth)).toThrow();
   });
 
   it('sets correct default fields on each record', () => {
@@ -147,19 +149,20 @@ describe('processBankFile', () => {
       makeRow({ name: 'בדיקה', amount: 100, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result[0]).toMatchObject({
       id: 'test-uuid-1234',
       index: 1,
       name: 'בדיקה',
       email: '',
+      date: '2025-01-01',
       amount: 100,
       payType: 4,
       card: '',
       appType: 2,
       description: '',
-      remarks: '',
+      remarks: 'תשלום שכר דירה חייל/ת בבית- ינואר 2025',
       source: 'bank',
       receiptStatus: 'pending',
       receiptNumber: null,
@@ -174,7 +177,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'מעל סף', amount: 0.02, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('מעל סף');
@@ -188,7 +191,7 @@ describe('processBankFile', () => {
       makeRow({ name: 'ד', amount: 40, condition: 'X' }),
     ];
     const buf = buildExcelBuffer(rows);
-    const result = processBankFile(buf);
+    const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(4);
     expect(result.map(r => r.name)).toEqual(['א', 'ב', 'ג', 'ד']);
@@ -199,18 +202,19 @@ describe('processBankFile', () => {
 
 describe('createEmptyRecord', () => {
   it('creates a record with correct defaults', () => {
-    const record = createEmptyRecord(5);
+    const record = createEmptyRecord(5, selectedMonth);
     expect(record).toMatchObject({
       id: 'test-uuid-1234',
       index: 6,
       name: '',
       email: '',
+      date: '2025-01-01',
       amount: 0,
       payType: 1,
       card: '',
       appType: 2,
       description: '',
-      remarks: '',
+      remarks: 'תשלום שכר דירה חייל/ת בבית- ינואר 2025',
       source: 'manual',
       receiptStatus: 'pending',
       receiptNumber: null,
@@ -220,14 +224,14 @@ describe('createEmptyRecord', () => {
   });
 
   it('sets index based on existing count', () => {
-    expect(createEmptyRecord(0).index).toBe(1);
-    expect(createEmptyRecord(10).index).toBe(11);
-    expect(createEmptyRecord(999).index).toBe(1000);
+    expect(createEmptyRecord(0, selectedMonth).index).toBe(1);
+    expect(createEmptyRecord(10, selectedMonth).index).toBe(11);
+    expect(createEmptyRecord(999, selectedMonth).index).toBe(1000);
   });
 
-  it('sets today date in YYYY-MM-DD format', () => {
-    const record = createEmptyRecord(0);
-    expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  it('sets date in YYYY-MM-DD format based on selected month', () => {
+    const record = createEmptyRecord(0, selectedMonth);
+    expect(record.date).toBe('2025-01-01');
   });
 });
 

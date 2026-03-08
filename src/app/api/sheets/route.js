@@ -32,7 +32,7 @@ function parseCsvLine(line) {
 
 export async function GET() {
   try {
-    const res = await fetch(SHEET_CSV_URL, { next: { revalidate: 300 } });
+    const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
 
     if (!res.ok) {
       return Response.json(
@@ -48,7 +48,7 @@ export async function GET() {
     for (let i = 1; i < lines.length; i++) {
       const cols = parseCsvLine(lines[i]);
       const name = (cols[0] || '').replace(/[\u200e\u200f]/g, '').trim();
-      const crmId = (cols[1] || '').trim();
+      const crmId = (cols[2] || '').trim();
       if (name && crmId) {
         entries.push({ name, crmId });
       }

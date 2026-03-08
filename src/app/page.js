@@ -5,10 +5,12 @@ import colors from '@/app/colors';
 import FileUploader from '@/components/FileUploader';
 import PaymentTable from '@/components/PaymentTable';
 import CrmTable from '@/components/CrmTable';
-import { processBankFile, createEmptyRecord, exportToExcel, downloadExcel } from '@/lib/processBank';
-import { authenticate, processOneReceipt } from '@/lib/greenInvoice';
+import RentChargeTable from '@/components/RentChargeTable';
+import { processBankFile, createEmptyRecord, exportToExcel, downloadExcel, getMonthDateRange, matchExistingReceipts } from '@/lib/processBank';
+import { authenticate, processOneReceipt, searchExistingReceipts } from '@/lib/greenInvoice';
 import { fetchAccountIdMap } from '@/lib/googleSheets';
 import { buildCrmRecords } from '@/lib/crmExport';
+import { buildRentChargeRecords } from '@/lib/rentChargeExport';
 
 export default function Home() {
   const [records, setRecords] = useState([]);
@@ -24,27 +26,54 @@ export default function Home() {
   });
   const [crmLoading, setCrmLoading] = useState(false);
   const [fileError, setFileError] = useState(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchInfo, setMatchInfo] = useState(null);
+  const [rentChargeRecords, setRentChargeRecords] = useState([]);
 
-  const handleFileProcessed = useCallback((arrayBuffer, name) => {
+  const handleFileProcessed = useCallback(async (arrayBuffer, name) => {
+    let parsed;
     try {
-      const parsed = processBankFile(arrayBuffer);
+      parsed = processBankFile(arrayBuffer, selectedMonth);
       if (!parsed.length) {
         setFileError('לא נמצאו רשומות תקינות בקובץ — יש לוודא שזהו הקובץ הנכון ממערכת שקד');
         setRecords([]);
         return;
       }
-      setFileError(null);
-      setRecords(parsed);
-      setFileName(name);
-      setDone(false);
-      setProgress({ current: 0, total: 0 });
-      setCrmRecords([]);
-      setAccountIdMap(null);
     } catch (err) {
       setFileError(err.message);
       setRecords([]);
+      return;
     }
-  }, []);
+
+    setFileError(null);
+    setFileName(name);
+    setDone(false);
+    setProgress({ current: 0, total: 0 });
+    setCrmRecords([]);
+    setRentChargeRecords([]);
+    setAccountIdMap(null);
+    setMatchInfo(null);
+
+    setRecords(parsed);
+    setMatchLoading(true);
+
+    try {
+      const token = await authenticate();
+      const { fromDate, toDate } = getMonthDateRange(selectedMonth);
+      const existingDocs = await searchExistingReceipts(token, fromDate, toDate);
+      const merged = matchExistingReceipts(parsed, existingDocs);
+      setRecords(merged);
+
+      const matched = merged.filter(r => r.receiptStatus === 'done').length;
+      if (matched > 0) {
+        setMatchInfo(`${matched} קבלות כבר קיימות בחשבונית ירוקה לחודש זה`);
+      }
+    } catch (err) {
+      console.error('Receipt match check failed:', err);
+    } finally {
+      setMatchLoading(false);
+    }
+  }, [selectedMonth]);
 
   const handleUpdate = useCallback((id, key, value) => {
     setRecords(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
@@ -55,8 +84,8 @@ export default function Home() {
   }, []);
 
   const handleAdd = useCallback(() => {
-    setRecords(prev => [...prev, createEmptyRecord(prev.length)]);
-  }, []);
+    setRecords(prev => [...prev, createEmptyRecord(prev.length, selectedMonth)]);
+  }, [selectedMonth]);
 
   const handleRetryOne = useCallback((id) => {
     setRecords(prev => prev.map(r =>
@@ -154,7 +183,7 @@ export default function Home() {
     }
   }, [records, selectedMonth]);
 
-  const handleCrmMonthChange = useCallback((newMonth) => {
+  const handleMonthChange = useCallback((newMonth) => {
     setSelectedMonth(newMonth);
     if (accountIdMap) {
       setCrmRecords(buildCrmRecords(records, accountIdMap, newMonth));
@@ -166,6 +195,21 @@ export default function Home() {
       prev.map(r => r._id === recordId ? { ...r, Accountid: value, _matched: !!value } : r)
     );
   }, []);
+
+  const handleBuildRentCharge = useCallback(() => {
+    setRentChargeRecords(buildRentChargeRecords(crmRecords));
+  }, [crmRecords]);
+
+  const handleSfToggle = useCallback((id) => {
+    setRentChargeRecords(prev =>
+      prev.map(r => r._id === id ? { ...r, sfEntered: !r.sfEntered } : r)
+    );
+  }, []);
+
+  const HEBREW_MONTHS = [
+    'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+    'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+  ];
 
   const successCount = records.filter(r => r.receiptStatus === 'done').length;
   const errorCount = records.filter(r => r.receiptStatus === 'error').length;
@@ -182,14 +226,67 @@ export default function Home() {
         </p>
       </header>
 
+      <section
+        className="mb-6 rounded-xl border p-4 flex items-center gap-4 flex-wrap"
+        style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
+      >
+        <label className="text-sm font-semibold" style={{ color: colors.text }}>
+          חודש עבודה:
+        </label>
+        <select
+          value={selectedMonth.month}
+          onChange={e => handleMonthChange({ ...selectedMonth, month: Number(e.target.value) })}
+          disabled={generating || matchLoading}
+          className="rounded-lg border px-3 py-2 text-sm font-medium"
+          style={{ borderColor: colors.gray400 }}
+        >
+          {HEBREW_MONTHS.map((label, idx) => (
+            <option key={idx} value={idx}>{label}</option>
+          ))}
+        </select>
+        <input
+          type="number"
+          value={selectedMonth.year}
+          onChange={e => handleMonthChange({ ...selectedMonth, year: Number(e.target.value) })}
+          disabled={generating || matchLoading}
+          className="rounded-lg border px-3 py-2 text-sm font-medium w-24"
+          style={{ borderColor: colors.gray400 }}
+          min={2020}
+          max={2040}
+        />
+      </section>
+
       <section className="mb-6">
         <p className="mb-3 text-sm font-medium" style={{ color: colors.muted }}>
           יש להעלות את קובץ האקסל שמתקבל ממערכת שקד
         </p>
-        <FileUploader onFileProcessed={handleFileProcessed} disabled={generating} externalError={fileError} />
+        <FileUploader onFileProcessed={handleFileProcessed} disabled={generating || matchLoading} externalError={fileError} />
+        {matchInfo && !matchLoading && (
+          <p className="mt-2 text-sm font-medium" style={{ color: colors.green }}>
+            {matchInfo}
+          </p>
+        )}
       </section>
 
-      {records.length > 0 && (
+      {matchLoading && (
+        <div
+          className="rounded-xl border p-12 flex flex-col items-center justify-center gap-4"
+          style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
+        >
+          <div
+            className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin"
+            style={{ borderColor: `${colors.gray400}`, borderTopColor: colors.primaryGreen }}
+          />
+          <p className="text-base font-semibold" style={{ color: colors.text }}>
+            בודק קבלות קיימות בחשבונית ירוקה...
+          </p>
+          <p className="text-sm" style={{ color: colors.muted }}>
+            {HEBREW_MONTHS[selectedMonth.month]} {selectedMonth.year}
+          </p>
+        </div>
+      )}
+
+      {!matchLoading && records.length > 0 && (
         <>
           <PaymentTable
             records={records}
@@ -263,7 +360,7 @@ export default function Home() {
               {pendingCount > 0 && successCount === 0 && (
                 <button
                   onClick={handleTestFirst}
-                  disabled={generating}
+                  disabled={generating || matchLoading}
                   className="rounded-xl px-6 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40 border-2"
                   style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen, backgroundColor: '#fff' }}
                 >
@@ -274,7 +371,7 @@ export default function Home() {
               {pendingCount > 0 && (
                 <button
                   onClick={handleNextOne}
-                  disabled={generating}
+                  disabled={generating || matchLoading}
                   className="rounded-xl px-6 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40 border-2"
                   style={{ borderColor: colors.gold, color: colors.gold, backgroundColor: '#fff' }}
                 >
@@ -284,14 +381,14 @@ export default function Home() {
 
               <button
                 onClick={handleGenerate}
-                disabled={generating || pendingCount === 0}
+                disabled={generating || matchLoading || pendingCount === 0}
                 className="rounded-xl px-8 py-3.5 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
               >
                 {generating ? 'מעבד...' : `הפק את כל הקבלות (${pendingCount})`}
               </button>
 
-              {!generating && done && errorCount > 0 && (
+              {!generating && pendingCount === 0 && errorCount > 0 && (
                 <button
                   onClick={handleRetryAllFailed}
                   className="rounded-xl px-8 py-3.5 text-base font-semibold transition-colors hover:opacity-90"
@@ -303,7 +400,7 @@ export default function Home() {
             </div>
 
             {/* Download section */}
-            {done && (successCount > 0 || errorCount > 0) && (
+            {!generating && pendingCount === 0 && (successCount > 0 || errorCount > 0) && (
               <div
                 className="mt-4 pt-4 flex items-center gap-3 flex-wrap"
                 style={{ borderTop: `1px solid ${colors.gray400}` }}
@@ -339,7 +436,7 @@ export default function Home() {
             )}
           </div>
 
-          {done && successCount > 0 && crmRecords.length === 0 && (
+          {!generating && pendingCount === 0 && successCount > 0 && crmRecords.length === 0 && (
             <div className="mt-8 text-center">
               <button
                 onClick={handleBuildCrm}
@@ -356,8 +453,27 @@ export default function Home() {
             <CrmTable
               crmRecords={crmRecords}
               selectedMonth={selectedMonth}
-              onMonthChange={handleCrmMonthChange}
               onAccountIdChange={handleAccountIdChange}
+            />
+          )}
+
+          {crmRecords.length > 0 && rentChargeRecords.length === 0 && (
+            <div className="mt-8 text-center">
+              <button
+                onClick={handleBuildRentCharge}
+                className="rounded-xl px-6 py-3 text-base font-semibold transition-colors hover:opacity-90"
+                style={{ backgroundColor: colors.secondaryText, color: '#fff' }}
+              >
+                דוח לרואה חשבון
+              </button>
+            </div>
+          )}
+
+          {rentChargeRecords.length > 0 && (
+            <RentChargeTable
+              rentRecords={rentChargeRecords}
+              selectedMonth={selectedMonth}
+              onSfToggle={handleSfToggle}
             />
           )}
         </>

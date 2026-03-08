@@ -9,7 +9,11 @@ async function fetchWithTimeout(url, options, ms = 15000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      cache: 'no-store',
+    });
     clearTimeout(id);
     return res;
   } catch (e) {
@@ -163,6 +167,65 @@ export async function processOneReceipt(token, record) {
       errorMessage: err.message,
     };
   }
+}
+
+/**
+ * Server Action: search Green Invoice for existing receipts (type 400)
+ * within a date range. Returns flat array of { clientName, amount, receiptNumber, documentDate }.
+ */
+export async function searchExistingReceipts(token, fromDate, toDate) {
+  if (isMock()) return [];
+
+  const apiUrl = process.env.GREEN_INVOICE_API_URL;
+  const all = [];
+  let page = 1;
+  const pageSize = 50;
+
+  while (true) {
+    const url = `${apiUrl}documents/search`;
+    const res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        type: [400],
+        fromDate,
+        toDate,
+        page,
+        pageSize,
+        sort: 'documentDate',
+      }),
+    }, 20000);
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      console.error(`Search API returned non-JSON (${res.status}):`, text.slice(0, 200));
+      throw new Error(`Search API returned status ${res.status} (non-JSON response)`);
+    }
+
+    const data = await res.json();
+
+    if (data.errorCode && data.errorCode !== 0) {
+      throw new Error(`Search failed: ${data.errorMessage || 'Unknown error'}`);
+    }
+
+    for (const doc of (data.items || [])) {
+      all.push({
+        clientName: doc.client?.name || '',
+        amount: doc.amount ?? 0,
+        receiptNumber: doc.number,
+        documentDate: doc.documentDate || '',
+      });
+    }
+
+    if (page >= (data.pages || 1)) break;
+    page++;
+  }
+
+  return all;
 }
 
 /**

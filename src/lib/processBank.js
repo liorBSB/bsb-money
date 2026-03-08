@@ -6,6 +6,15 @@ const COL_NAME = 14;        // Column O
 
 const SKIP_PATTERNS = ['סה"כ', 'שם לקוח', 'מיון ראשי'];
 
+const HEBREW_MONTHS = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+];
+
+function defaultRemarks(month, year) {
+  return `תשלום שכר דירה חייל/ת בבית- ${HEBREW_MONTHS[month]} ${year}`;
+}
+
 function parseAmount(val) {
   if (typeof val === 'number') return val;
   if (!val) return 0;
@@ -33,9 +42,9 @@ function formatDate(d) {
 
 /**
  * Parses a raw bank Excel buffer and groups payments by customer name.
- * Returns records in the Green Invoice 9-column format.
+ * selectedMonth: { month: 0-11, year: YYYY }
  */
-export function processBankFile(arrayBuffer) {
+export function processBankFile(arrayBuffer, selectedMonth) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
@@ -81,20 +90,21 @@ export function processBankFile(arrayBuffer) {
     grouped.push({ name: currentName, amount: currentSum });
   }
 
-  const today = formatDate(new Date());
+  const { month, year } = selectedMonth;
+  const recordDate = formatDate(new Date(year, month, 1));
 
   return grouped.map((record, index) => ({
     id: crypto.randomUUID(),
     index: index + 1,
     name: record.name,
     email: '',
-    date: today,
+    date: recordDate,
     amount: Math.round(record.amount),
     payType: 4,
     card: '',
     appType: 2,
     description: '',
-    remarks: '',
+    remarks: defaultRemarks(month, year),
     source: 'bank',
     receiptStatus: 'pending',
     receiptNumber: null,
@@ -106,25 +116,74 @@ export function processBankFile(arrayBuffer) {
 /**
  * Creates an empty record for manual entry.
  */
-export function createEmptyRecord(existingCount) {
+export function createEmptyRecord(existingCount, selectedMonth) {
+  const { month, year } = selectedMonth;
   return {
     id: crypto.randomUUID(),
     index: existingCount + 1,
     name: '',
     email: '',
-    date: formatDate(new Date()),
+    date: formatDate(new Date(year, month, 1)),
     amount: 0,
     payType: 1,
     card: '',
     appType: 2,
     description: '',
-    remarks: '',
+    remarks: defaultRemarks(month, year),
     source: 'manual',
     receiptStatus: 'pending',
     receiptNumber: null,
     errorCode: null,
     errorMessage: null,
   };
+}
+
+/**
+ * Returns { fromDate, toDate } spanning the given month.
+ * selectedMonth: { month: 0-11, year: YYYY }
+ */
+export function getMonthDateRange(selectedMonth) {
+  const { month, year } = selectedMonth;
+  const mm = String(month + 1).padStart(2, '0');
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return {
+    fromDate: `${year}-${mm}-01`,
+    toDate: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+function normalizeName(name) {
+  if (typeof name !== 'string') return '';
+  return name.replace(/[\u200e\u200f]/g, '').trim();
+}
+
+/**
+ * Matches parsed records against existing Green Invoice documents.
+ * Records whose name matches an existing receipt get marked as 'done'.
+ */
+export function matchExistingReceipts(records, existingDocs) {
+  if (!existingDocs || !existingDocs.length) return records;
+
+  const docMap = new Map();
+  for (const doc of existingDocs) {
+    const key = normalizeName(doc.clientName);
+    if (key) docMap.set(key, doc);
+  }
+
+  return records.map(r => {
+    const key = normalizeName(r.name);
+    const match = docMap.get(key);
+    if (match) {
+      return {
+        ...r,
+        receiptStatus: 'done',
+        receiptNumber: match.receiptNumber,
+        errorCode: null,
+        errorMessage: null,
+      };
+    }
+    return r;
+  });
 }
 
 const PAY_TYPE_LABELS = {
