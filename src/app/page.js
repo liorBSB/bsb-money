@@ -87,6 +87,18 @@ export default function Home() {
     setRecords(prev => [...prev, createEmptyRecord(prev.length, selectedMonth)]);
   }, [selectedMonth]);
 
+  const handleStartManual = useCallback(() => {
+    setRecords([createEmptyRecord(0, selectedMonth)]);
+    setFileName(null);
+    setDone(false);
+    setProgress({ current: 0, total: 0 });
+    setFileError(null);
+    setMatchInfo(null);
+    setCrmRecords([]);
+    setRentChargeRecords([]);
+    setAccountIdMap(null);
+  }, [selectedMonth]);
+
   const handleRetryOne = useCallback((id) => {
     setRecords(prev => prev.map(r =>
       r.id === id ? { ...r, receiptStatus: 'pending', receiptNumber: null, errorCode: null, errorMessage: null } : r
@@ -477,6 +489,25 @@ export default function Home() {
             />
           )}
         </>
+      )}
+
+      {!matchLoading && records.length === 0 && (
+        <section
+          className="mt-8 rounded-xl border p-6 text-center"
+          style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
+        >
+          <p className="mb-4 text-sm font-medium" style={{ color: colors.muted }}>
+            ניתן להתחיל בהזנה ידנית של קבלה אחת או יותר ללא העלאת קובץ
+          </p>
+          <button
+            onClick={handleStartManual}
+            disabled={generating || matchLoading}
+            className="rounded-xl px-6 py-3 text-base font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: colors.gold, color: colors.black }}
+          >
+            התחל הזנה ידנית
+          </button>
+        </section>
       )}
     </div>
   );
