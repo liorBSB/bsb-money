@@ -39,13 +39,25 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
 
   return (
     <div className="mt-10">
-      <div className="mb-4">
-        <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
-          {title}
-        </h2>
-        <p className="mt-1 text-sm" style={{ color: colors.muted }}>
-          יש לסמן את כל החיילים שהוזנו ב-Sales Force. ברירת מחדל: כולם מסומנים.
-        </p>
+      <div className="mb-4 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
+            {title}
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: colors.muted }}>
+            יש לסמן את כל החיילים שהוזנו ב-Sales Force. ברירת מחדל: כולם מסומנים.
+          </p>
+        </div>
+        <button
+          onClick={handleDownload}
+          className="rounded-xl px-6 py-3 text-sm font-semibold transition-colors hover:opacity-90 flex items-center gap-2"
+          style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+          </svg>
+          הורד דוח לרואה חשבון
+        </button>
       </div>
 
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: colors.gray400 }}>

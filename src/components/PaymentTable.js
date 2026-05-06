@@ -18,6 +18,7 @@ const STATUS_LABELS = {
   processing: { text: 'בתהליך...', color: colors.secondaryText },
   done: { text: 'הצליח', color: colors.green },
   error: { text: 'שגיאה', color: colors.red },
+  skipped: { text: 'לא שולם — לא תופק קבלה', color: colors.gold },
 };
 
 const COLUMNS = [

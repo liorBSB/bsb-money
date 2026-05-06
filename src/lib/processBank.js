@@ -40,6 +40,48 @@ function formatDate(d) {
   return `${year}-${month}-${day}`;
 }
 
+const REPORT_DATE_PATTERN = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/;
+
+/**
+ * Reads the Shaked report and extracts the month/year the report is for,
+ * by scanning the top header rows for a dd/MM/YYYY string. The Shaked
+ * report places this date next to the label "דו"ח תשלומים בהוראת קבע ליום".
+ * Returns { month: 0-11, year: YYYY } if found, otherwise null.
+ */
+export function extractReportMonth(arrayBuffer) {
+  let workbook;
+  try {
+    workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  } catch {
+    return null;
+  }
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) return null;
+  const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+  const headerRowsToScan = Math.min(data.length, 5);
+  for (let r = 0; r < headerRowsToScan; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const hasReportLabel = row.some(cell =>
+      typeof cell === 'string' && cell.includes('דו"ח תשלומים בהוראת קבע')
+    );
+    if (!hasReportLabel) continue;
+    for (const cell of row) {
+      if (typeof cell !== 'string') continue;
+      const m = cell.match(REPORT_DATE_PATTERN);
+      if (m) {
+        const month = Number(m[2]) - 1;
+        const year = Number(m[3]);
+        if (month >= 0 && month <= 11 && year >= 2000 && year <= 2100) {
+          return { month, year };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Parses a raw bank Excel buffer and groups payments by customer name.
  * selectedMonth: { month: 0-11, year: YYYY }
@@ -72,7 +114,7 @@ export function processBankFile(arrayBuffer, selectedMonth) {
     const isNew = isValidName(name);
 
     if (isNew) {
-      if (currentName && Math.abs(currentSum) > 0.01) {
+      if (currentName) {
         grouped.push({ name: currentName, amount: currentSum });
       }
       currentName = name;
@@ -86,31 +128,41 @@ export function processBankFile(arrayBuffer, selectedMonth) {
     }
   }
 
-  if (currentName && Math.abs(currentSum) > 0.01) {
+  if (currentName) {
     grouped.push({ name: currentName, amount: currentSum });
   }
 
   const { month, year } = selectedMonth;
   const recordDate = formatDate(new Date(year, month, 1));
 
-  return grouped.map((record, index) => ({
-    id: crypto.randomUUID(),
-    index: index + 1,
-    name: record.name,
-    email: '',
-    date: recordDate,
-    amount: Math.round(record.amount),
-    payType: 4,
-    card: '',
-    appType: 2,
-    description: '',
-    remarks: defaultRemarks(month, year),
-    source: 'bank',
-    receiptStatus: 'pending',
-    receiptNumber: null,
-    errorCode: null,
-    errorMessage: null,
-  }));
+  // Drop rows that accumulated no payment — these are the Shaked report's
+  // top header labels (e.g. "סכומים גדולים מ-0", account numbers) and the
+  // footer summary blocks ("סיכום גביה לפי...", "קוד מטבע", "ש"ח", numeric
+  // totals like 169/143). Real customer rows always carry a non-zero payment
+  // (negative values represent refunds/reversals and are kept).
+  return grouped
+    .filter(record => Math.round(record.amount) !== 0)
+    .map((record, index) => {
+      const amount = Math.round(record.amount);
+      return {
+        id: crypto.randomUUID(),
+        index: index + 1,
+        name: record.name,
+        email: '',
+        date: recordDate,
+        amount,
+        payType: 4,
+        card: '',
+        appType: 2,
+        description: '',
+        remarks: defaultRemarks(month, year),
+        source: 'bank',
+        receiptStatus: 'pending',
+        receiptNumber: null,
+        errorCode: null,
+        errorMessage: null,
+      };
+    });
 }
 
 /**

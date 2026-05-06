@@ -79,7 +79,7 @@ describe('processBankFile', () => {
     expect(result[0].amount).toBe(300); // 100 + 200, skipping the 999
   });
 
-  it('ignores customers with zero total', () => {
+  it('drops zero-payment rows (Shaked report headers/footers)', () => {
     const rows = [
       makeRow({ name: 'אפס', amount: 0, condition: 'X' }),
       makeRow({ name: 'ריק', amount: 0.001, condition: 'X' }),
@@ -89,7 +89,7 @@ describe('processBankFile', () => {
     const result = processBankFile(buf, selectedMonth);
 
     expect(result).toHaveLength(1);
-    expect(result[0].name).toBe('תקין');
+    expect(result[0]).toMatchObject({ name: 'תקין', amount: 50, receiptStatus: 'pending' });
   });
 
   it('handles negative amounts', () => {
@@ -171,7 +171,7 @@ describe('processBankFile', () => {
     });
   });
 
-  it('handles very small amounts near the 0.01 threshold', () => {
+  it('drops rows whose fractional amount rounds to zero', () => {
     const rows = [
       makeRow({ name: 'כמעט אפס', amount: 0.005, condition: 'X' }),
       makeRow({ name: 'מעל סף', amount: 0.02, condition: 'X' }),
@@ -179,8 +179,7 @@ describe('processBankFile', () => {
     const buf = buildExcelBuffer(rows);
     const result = processBankFile(buf, selectedMonth);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].name).toBe('מעל סף');
+    expect(result).toHaveLength(0);
   });
 
   it('handles multiple customers sequentially', () => {

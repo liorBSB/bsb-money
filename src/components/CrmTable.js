@@ -9,17 +9,17 @@ const DISPLAY_COLUMNS = [
   { key: 'Name', label: 'Name', width: '240px' },
   { key: 'Amount', label: 'Amount', width: '90px' },
   { key: 'Event__c', label: 'Event__c', width: '110px' },
-  { key: 'Accountid', label: 'Accountid', width: '170px', editable: true },
+  { key: 'Accountid', label: 'Accountid', width: '170px', editable: 'accountId' },
   { key: 'cash_cheque_pp__c', label: 'cash_cheque_pp__c', width: '130px' },
   { key: 'Receipt_Num__c', label: 'Receipt_Num__c', width: '120px' },
   { key: 'Bank_account__c', label: 'Bank_account__c', width: '110px' },
   { key: 'CloseDate', label: 'CloseDate', width: '110px' },
   { key: 'StageName', label: 'StageName', width: '90px' },
-  { key: 'Description', label: 'Description', width: '260px' },
+  { key: 'Description', label: 'Description', width: '260px', editable: 'text' },
   { key: 'CurrencyIsoCode', label: 'CurrencyIsoCode', width: '80px' },
 ];
 
-export default function CrmTable({ crmRecords, selectedMonth, onAccountIdChange }) {
+export default function CrmTable({ crmRecords, selectedMonth, onFieldChange }) {
   const matchedCount = useMemo(
     () => crmRecords.filter(r => r._matched).length,
     [crmRecords]
@@ -36,10 +36,17 @@ export default function CrmTable({ crmRecords, selectedMonth, onAccountIdChange 
 
   return (
     <div className="mt-10">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
           טבלת CRM לייצוא
         </h2>
+        <button
+          onClick={handleDownload}
+          className="rounded-xl px-6 py-3 text-sm font-semibold transition-colors hover:opacity-90"
+          style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
+        >
+          הורד קובץ מוכן ל-Sales Force
+        </button>
       </div>
 
       {unmatchedCount > 0 && (
@@ -87,11 +94,11 @@ export default function CrmTable({ crmRecords, selectedMonth, onAccountIdChange 
                 </td>
                 {DISPLAY_COLUMNS.map(col => (
                   <td key={col.key} className="px-2 py-1.5">
-                    {col.editable ? (
+                    {col.editable === 'accountId' ? (
                       <input
                         type="text"
                         value={row[col.key] || ''}
-                        onChange={e => onAccountIdChange(row._id, e.target.value)}
+                        onChange={e => onFieldChange(row._id, col.key, e.target.value)}
                         placeholder="הזן AccountId..."
                         className="w-full rounded border px-1.5 py-1 text-xs"
                         style={{
@@ -99,13 +106,17 @@ export default function CrmTable({ crmRecords, selectedMonth, onAccountIdChange 
                           backgroundColor: row._matched ? `${colors.green}08` : `${colors.red}08`,
                         }}
                       />
-                    ) : col.key === 'Accountid' ? (
-                      <span
-                        className="font-mono text-xs"
-                        style={{ color: row._matched ? colors.green : colors.red }}
-                      >
-                        {row[col.key] || '—'}
-                      </span>
+                    ) : col.editable === 'text' ? (
+                      <input
+                        type="text"
+                        value={row[col.key] || ''}
+                        onChange={e => onFieldChange(row._id, col.key, e.target.value)}
+                        className="w-full rounded border px-1.5 py-1 text-xs"
+                        style={{
+                          borderColor: colors.gray400,
+                          backgroundColor: '#fff',
+                        }}
+                      />
                     ) : (
                       <span className="whitespace-nowrap">{row[col.key]}</span>
                     )}

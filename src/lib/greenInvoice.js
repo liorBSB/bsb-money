@@ -218,6 +218,7 @@ export async function searchExistingReceipts(token, fromDate, toDate) {
         amount: doc.amount ?? 0,
         receiptNumber: doc.number,
         documentDate: doc.documentDate || '',
+        description: doc.description || '',
       });
     }
 
