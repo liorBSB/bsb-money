@@ -31,7 +31,7 @@ const COLUMNS = [
   { key: 'card', label: 'כרטיס', width: '100px', editable: true, type: 'text', required: false, showWhen: (r) => r.payType === 3 },
   { key: 'appType', label: 'אפליקציה', width: '90px', editable: true, type: 'number', required: false, showWhen: (r) => r.payType === 10 },
   { key: 'description', label: 'תיאור', width: '150px', editable: true, type: 'text', required: false },
-  { key: 'remarks', label: 'הערות', width: '150px', editable: true, type: 'text', required: false },
+  { key: 'remarks', label: 'הערות', width: '240px', editable: true, type: 'textarea', required: false },
   { key: 'receiptStatus', label: 'סטטוס', width: '90px', editable: false, required: false },
   { key: 'receiptNumber', label: 'מספר קבלה', width: '110px', editable: false, required: false },
 ];
@@ -145,6 +145,15 @@ export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRet
                         </select>
                       ) : !relevant ? (
                         <span className="block text-center" style={{ color: colors.gray400 }}>—</span>
+                      ) : col.editable && col.type === 'textarea' ? (
+                        <textarea
+                          value={record[col.key] ?? ''}
+                          onChange={(e) => handleCellChange(record.id, col.key, e.target.value)}
+                          disabled={generating || record.receiptStatus === 'processing'}
+                          rows={2}
+                          className="h-16 w-full resize-none overflow-y-auto rounded border px-2 py-1 text-sm bg-transparent leading-5"
+                          style={{ borderColor: colors.gray400 }}
+                        />
                       ) : col.editable ? (
                         <input
                           type={col.type}
