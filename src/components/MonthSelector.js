@@ -18,33 +18,43 @@ export default function MonthSelector({ disabled = false, onChange }) {
 
   return (
     <section
-      className="mb-6 rounded-xl border p-4 flex items-center gap-4 flex-wrap"
-      style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
+      className="mb-8 flex items-center justify-between gap-4 rounded-2xl border p-5 shadow-sm flex-wrap"
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.gray200,
+      }}
     >
-      <label className="text-sm font-semibold" style={{ color: colors.text }}>
-        חודש עבודה:
-      </label>
-      <select
-        value={selectedMonth.month}
-        onChange={e => update({ ...selectedMonth, month: Number(e.target.value) })}
-        disabled={disabled}
-        className="rounded-lg border px-3 py-2 text-sm font-medium"
-        style={{ borderColor: colors.gray400 }}
-      >
-        {HEBREW_MONTHS.map((label, idx) => (
-          <option key={idx} value={idx}>{label}</option>
-        ))}
-      </select>
-      <input
-        type="number"
-        value={selectedMonth.year}
-        onChange={e => update({ ...selectedMonth, year: Number(e.target.value) })}
-        disabled={disabled}
-        className="rounded-lg border px-3 py-2 text-sm font-medium w-24"
-        style={{ borderColor: colors.gray400 }}
-        min={2020}
-        max={2040}
-      />
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: colors.gold }}>
+          תקופת עבודה
+        </p>
+        <label className="mt-1 block text-base font-bold" style={{ color: colors.text }}>
+          בחר חודש ושנה
+        </label>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={selectedMonth.month}
+          onChange={e => update({ ...selectedMonth, month: Number(e.target.value) })}
+          disabled={disabled}
+          className="h-11 min-w-32 rounded-xl border px-4 text-sm font-semibold outline-none transition focus:ring-4"
+          style={{ borderColor: colors.gray400, '--tw-ring-color': 'rgba(11,95,58,0.12)' }}
+        >
+          {HEBREW_MONTHS.map((label, idx) => (
+            <option key={idx} value={idx}>{label}</option>
+          ))}
+        </select>
+        <input
+          type="number"
+          value={selectedMonth.year}
+          onChange={e => update({ ...selectedMonth, year: Number(e.target.value) })}
+          disabled={disabled}
+          className="h-11 w-28 rounded-xl border px-4 text-sm font-semibold outline-none transition focus:ring-4"
+          style={{ borderColor: colors.gray400, '--tw-ring-color': 'rgba(11,95,58,0.12)' }}
+          min={2020}
+          max={2040}
+        />
+      </div>
     </section>
   );
 }

@@ -1,19 +1,23 @@
 const colors = {
-  primaryGreen: '#076332',
-  gold: '#EDC381',
-  goldHover: '#d4b06a',
-  white: '#E7E3DD',
-  black: '#000',
-  muted: '#888',
-  surface: '#F5F5F5',
-  background: '#F9FAFB',
-  text: '#222',
-  gray400: '#ccc',
-  yellow: '#FFD600',
-  red: '#FF5252',
-  green: '#4CAF50',
-  sectionBg: 'rgba(0,0,0,0.28)',
-  secondaryText: '#4F7DF3'
+  primaryGreen: '#0B5F3A',
+  primaryGreenHover: '#07492E',
+  gold: '#C9973F',
+  goldHover: '#A97924',
+  white: '#FFFFFF',
+  black: '#101828',
+  muted: '#667085',
+  surface: '#FFFFFF',
+  background: '#F7F3EC',
+  text: '#1D2939',
+  gray100: '#F2F4F7',
+  gray200: '#EAECF0',
+  gray300: '#D0D5DD',
+  gray400: '#D0D5DD',
+  yellow: '#FDB022',
+  red: '#D92D20',
+  green: '#12B76A',
+  sectionBg: 'rgba(11,95,58,0.08)',
+  secondaryText: '#315FC3'
 };
 
 export default colors;

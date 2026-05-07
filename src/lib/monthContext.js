@@ -33,7 +33,7 @@ export function MonthProvider({ children }) {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (isValidMonth(parsed)) {
-        setSelectedMonthState(parsed);
+        queueMicrotask(() => setSelectedMonthState(parsed));
       }
     } catch {
       // ignore corrupt storage

@@ -1,21 +1,42 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #E0BF8A;
-  --color-accent: #076332;
-  --color-background: #FAF4EF;
-  --color-surface: #F5F0E8;
-  --color-text: #3B3B3B;
-  --color-muted: #757575;
-  --color-success: #076332;
-  --color-warning: #EBA937;
-  --color-error: #C85C5C;
-  --font-heading: 'Poppins', sans-serif;
-  --font-body: 'Poppins', sans-serif;
+  --color-primary: #0B5F3A;
+  --color-accent: #C9973F;
+  --color-background: #F7F3EC;
+  --color-surface: #FFFFFF;
+  --color-text: #1D2939;
+  --color-muted: #667085;
+  --color-success: #0B5F3A;
+  --color-warning: #FDB022;
+  --color-error: #D92D20;
+  --font-heading: var(--font-heebo), var(--font-poppins), sans-serif;
+  --font-body: var(--font-heebo), var(--font-poppins), sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-background);
 }
 
 body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+select,
+input {
+  background-color: #FFFFFF;
+  color: var(--color-text);
 }

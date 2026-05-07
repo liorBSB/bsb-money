@@ -23,6 +23,7 @@ export function buildRentChargeRecords(crmRecords) {
   return crmRecords.map(r => ({
     _id: r._id,
     soldierName: r._originalName || '',
+    description: r.Description || '',
     date: formatDateDMY(r.CloseDate),
     amount: r.Amount,
     transferMethod: PAY_TYPE_HEBREW[r.cash_cheque_pp__c] || 'העברה בנקאית',
@@ -39,6 +40,7 @@ const EXPORT_HEADERS = [
   'אופן העברה',
   'סכום',
   'תאריך',
+  'תיאור',
   'שם חייל/ת',
 ];
 
@@ -48,6 +50,7 @@ const COL_WIDTHS = [
   { wch: 18 },
   { wch: 10 },
   { wch: 14 },
+  { wch: 36 },
   { wch: 20 },
 ];
 
@@ -69,6 +72,7 @@ export function exportRentChargeXlsx(rentRecords, selectedMonth) {
     r.transferMethod,
     r.amount,
     r.date,
+    r.description,
     r.soldierName,
   ]);
   XLSX.utils.sheet_add_aoa(ws, dataRows, { origin: 'A3' });

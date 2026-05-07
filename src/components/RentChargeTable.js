@@ -6,6 +6,7 @@ import { exportRentChargeXlsx, downloadRentChargeXlsx } from '@/lib/rentChargeEx
 
 const DISPLAY_COLUMNS = [
   { key: 'soldierName', label: 'שם חייל/ת', width: '160px' },
+  { key: 'description', label: 'תיאור', width: '240px' },
   { key: 'date', label: 'תאריך', width: '110px' },
   { key: 'amount', label: 'סכום', width: '90px' },
   { key: 'transferMethod', label: 'אופן העברה', width: '140px' },
@@ -111,7 +112,7 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
                         </button>
                       </div>
                     ) : (
-                      <span className="whitespace-nowrap">{row[col.key]}</span>
+                      <span className={col.key === 'description' ? '' : 'whitespace-nowrap'}>{row[col.key]}</span>
                     )}
                   </td>
                 ))}
