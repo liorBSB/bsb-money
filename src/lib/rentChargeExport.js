@@ -5,6 +5,14 @@ const HEBREW_MONTHS = [
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ];
 
+export const PAY_TYPE_LABELS = {
+  1: 'מזומן',
+  2: "צ'ק",
+  3: 'אשראי',
+  4: 'העברה בנקאית',
+  10: 'אפליקציה',
+};
+
 const PAY_TYPE_HEBREW = {
   BankTransfer: 'העברה בנקאית',
   Cash: 'מזומן',
@@ -19,6 +27,18 @@ function formatDateDMY(isoDate) {
   return `${d}/${m}/${y}`;
 }
 
+export function formatAmountWithShekel(amount) {
+  if (amount == null || amount === '') return '';
+  const n = Number(amount);
+  if (Number.isNaN(n)) return String(amount);
+  return `${n.toLocaleString('he-IL')} ₪`;
+}
+
+export function payTypeToHebrew(payType) {
+  if (payType == null) return 'לא ידוע';
+  return PAY_TYPE_LABELS[payType] || `אחר (${payType})`;
+}
+
 export function buildRentChargeRecords(crmRecords) {
   return crmRecords.map(r => ({
     _id: r._id,
@@ -30,6 +50,46 @@ export function buildRentChargeRecords(crmRecords) {
     receiptNumber: r.Receipt_Num__c || '',
     sfEntered: true,
   }));
+}
+
+export function buildRentChargeRecordsFromMorning(docs, sfDefault) {
+  return docs.map(doc => ({
+    _id: doc.id || crypto.randomUUID(),
+    soldierName: doc.clientName || '',
+    description: doc.description || doc.remarks || '',
+    date: formatDateDMY(doc.documentDate),
+    amount: doc.amount ?? 0,
+    transferMethod: payTypeToHebrew(doc.payType),
+    payType: doc.payType,
+    receiptNumber: doc.receiptNumber ?? '',
+    sfEntered: sfDefault,
+  }));
+}
+
+export function buildRentChargeSummary(rentRecords) {
+  const map = {};
+  for (const r of rentRecords) {
+    const label = r.transferMethod || 'לא ידוע';
+    if (!map[label]) map[label] = { count: 0, total: 0 };
+    map[label].count++;
+    map[label].total += r.amount || 0;
+  }
+
+  const byMethod = Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b, 'he'))
+    .map(([label, data]) => ({
+      label,
+      count: data.count,
+      total: data.total,
+    }));
+
+  const grandTotal = rentRecords.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+  return {
+    byMethod,
+    count: rentRecords.length,
+    grandTotal,
+  };
 }
 
 const TITLE_PREFIX = 'חיוב שכר דירה חודש';
@@ -58,6 +118,7 @@ export function exportRentChargeXlsx(rentRecords, selectedMonth) {
   const monthName = HEBREW_MONTHS[selectedMonth.month];
   const shortYear = String(selectedMonth.year).slice(-2);
   const title = `${TITLE_PREFIX} ${monthName} ${shortYear}`;
+  const summary = buildRentChargeSummary(rentRecords);
 
   const ws = XLSX.utils.aoa_to_sheet([]);
 
@@ -70,12 +131,23 @@ export function exportRentChargeXlsx(rentRecords, selectedMonth) {
     r.sfEntered ? 'V' : '',
     r.receiptNumber,
     r.transferMethod,
-    r.amount,
+    formatAmountWithShekel(r.amount),
     r.date,
     r.description,
     r.soldierName,
   ]);
   XLSX.utils.sheet_add_aoa(ws, dataRows, { origin: 'A3' });
+
+  const summaryStartRow = 3 + rentRecords.length + 1;
+  const summaryRows = [
+    [],
+    ['סיכום לפי אופן תשלום'],
+    ['אופן תשלום', 'מספר קבלות', 'סכום (₪)'],
+    ...summary.byMethod.map(item => [item.label, item.count, formatAmountWithShekel(item.total)]),
+    [],
+    ['סה״כ', summary.count, formatAmountWithShekel(summary.grandTotal)],
+  ];
+  XLSX.utils.sheet_add_aoa(ws, summaryRows, { origin: `A${summaryStartRow}` });
 
   ws['!cols'] = COL_WIDTHS;
   ws['!dir'] = 'rtl';

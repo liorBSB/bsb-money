@@ -5,6 +5,7 @@ import Link from 'next/link';
 import colors from '@/app/colors';
 import CrmTable from '@/components/CrmTable';
 import FileUploader from '@/components/FileUploader';
+import PageHeader from '@/components/PageHeader';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
 import { authenticate, searchExistingReceipts } from '@/lib/greenInvoice';
@@ -118,26 +119,12 @@ export default function CrmPage() {
   const showUploader = !loading && !missing && !matchedOnly && crmRecords.length === 0;
 
   return (
-    <div className="min-h-screen p-6 max-w-[1400px] mx-auto">
-      <header className="mb-8">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <Link
-            href="/"
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors hover:opacity-80 border"
-            style={{ borderColor: colors.gray400, color: colors.text, backgroundColor: colors.surface }}
-          >
-            ← חזרה לדשבורד
-          </Link>
-        </div>
-        <div className="text-center">
-          <h1 className="text-3xl font-bold" style={{ color: colors.gold }}>
-            קובץ ל-CRM
-          </h1>
-          <p className="mt-1" style={{ color: colors.muted }}>
-            בניית קובץ ל-Sales Force מתוך הקבלות שכבר הופקו לחודש שנבחר
-          </p>
-        </div>
-      </header>
+    <div className="min-h-screen px-5 py-8 md:px-8 md:py-10 max-w-[1400px] mx-auto">
+      <PageHeader
+        title="קובץ ל-CRM"
+        subtitle="בניית קובץ ל-Sales Force מתוך הקבלות שכבר הופקו לחודש שנבחר"
+        accent={colors.gold}
+      />
 
       <MonthSelector disabled={loading} onChange={reset} />
 

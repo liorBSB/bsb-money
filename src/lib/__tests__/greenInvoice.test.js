@@ -7,7 +7,7 @@ vi.stubEnv('GREEN_INVOICE_API_URL', 'https://api.test.com/');
 vi.stubEnv('GREEN_INVOICE_KEY', 'test-key');
 vi.stubEnv('GREEN_INVOICE_SECRET', 'test-secret');
 
-const { authenticate, processOneReceipt } = await import('../greenInvoice');
+const { authenticate, processOneReceipt, fetchAccountantReceipts } = await import('../greenInvoice');
 
 function makeRecord(overrides = {}) {
   return {
@@ -28,7 +28,9 @@ function makeRecord(overrides = {}) {
 function mockFetchResponse(data, ok = true) {
   fetch.mockResolvedValueOnce({
     ok,
+    headers: { get: (name) => (name === 'content-type' ? 'application/json' : null) },
     json: () => Promise.resolve(data),
+    text: () => Promise.resolve(JSON.stringify(data)),
   });
 }
 
@@ -213,5 +215,131 @@ describe('processOneReceipt', () => {
     const result = await processOneReceipt('jwt-token', makeRecord());
     expect(result.receiptStatus).toBe('done');
     expect(result.receiptNumber).toBe(99999);
+  });
+});
+
+describe('fetchAccountantReceipts', () => {
+  beforeEach(() => {
+    fetch.mockReset();
+    vi.stubEnv('GREEN_INVOICE_MOCK', 'false');
+  });
+
+  it('searches type 400 for the full month and maps payment from search', async () => {
+    mockFetchResponse({
+      errorCode: 0,
+      pages: 1,
+      items: [{
+        id: 'doc-1',
+        number: 123,
+        amount: 500,
+        documentDate: '2025-06-01',
+        description: 'תשלום שכר דירה',
+        client: { name: 'יוסי כהן' },
+        payment: [{ type: 1, price: 500 }],
+      }],
+    });
+
+    const result = await fetchAccountantReceipts('token', { month: 5, year: 2025 });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: 'doc-1',
+      clientName: 'יוסי כהן',
+      amount: 500,
+      receiptNumber: 123,
+      documentDate: '2025-06-01',
+      payType: 1,
+    });
+
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.type).toEqual([400]);
+    expect(body.fromDate).toBe('2025-06-01');
+    expect(body.toDate).toBe('2025-06-30');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches document detail when payment type is missing from search', async () => {
+    mockFetchResponse({
+      errorCode: 0,
+      pages: 1,
+      items: [{
+        id: 'doc-2',
+        number: 124,
+        amount: 600,
+        documentDate: '2025-06-15',
+        client: { name: 'דני לוי' },
+      }],
+    });
+
+    mockFetchResponse({
+      errorCode: 0,
+      id: 'doc-2',
+      number: 124,
+      amount: 600,
+      documentDate: '2025-06-15',
+      client: { name: 'דני לוי' },
+      payment: [{ type: 4, price: 600 }],
+    });
+
+    const result = await fetchAccountantReceipts('token', { month: 5, year: 2025 });
+
+    expect(result[0].payType).toBe(4);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe('https://api.test.com/documents/doc-2');
+    expect(fetch.mock.calls[1][1].method).toBe('GET');
+  });
+
+  it('paginates through multiple search pages', async () => {
+    mockFetchResponse({
+      errorCode: 0,
+      pages: 2,
+      items: [{
+        id: 'doc-a',
+        number: 1,
+        amount: 100,
+        documentDate: '2025-01-01',
+        client: { name: 'א' },
+        payment: [{ type: 4, price: 100 }],
+      }],
+    });
+
+    mockFetchResponse({
+      errorCode: 0,
+      pages: 2,
+      items: [{
+        id: 'doc-b',
+        number: 2,
+        amount: 200,
+        documentDate: '2025-01-02',
+        client: { name: 'ב' },
+        payment: [{ type: 1, price: 200 }],
+      }],
+    });
+
+    const result = await fetchAccountantReceipts('token', { month: 0, year: 2025 });
+
+    expect(result).toHaveLength(2);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetch.mock.calls[1][1].body).page).toBe(2);
+  });
+});
+
+describe('fetchAccountantReceipts mock mode', () => {
+  it('returns fixture data when mock mode is enabled', async () => {
+    vi.stubEnv('GREEN_INVOICE_MOCK', 'true');
+    vi.resetModules();
+    fetch.mockReset();
+    const { fetchAccountantReceipts: fetchMock } = await import('../greenInvoice');
+
+    const result = await fetchMock('token', { month: 5, year: 2025 });
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.some(r => r.payType === 1)).toBe(true);
+    expect(result.some(r => r.payType === 4)).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+
+    vi.stubEnv('GREEN_INVOICE_MOCK', 'false');
+    vi.resetModules();
+    await import('../greenInvoice');
   });
 });

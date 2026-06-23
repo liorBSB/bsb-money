@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import Link from 'next/link';
 import colors from '@/app/colors';
 import FileUploader from '@/components/FileUploader';
+import PageHeader from '@/components/PageHeader';
 import PaymentTable from '@/components/PaymentTable';
 import CrmTable from '@/components/CrmTable';
 import RentChargeTable from '@/components/RentChargeTable';
@@ -239,26 +239,12 @@ export default function ReceiptsPage() {
   const pendingCount = records.filter(r => r.receiptStatus === 'pending').length;
 
   return (
-    <div className="min-h-screen p-6 max-w-[1400px] mx-auto">
-      <header className="mb-8">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <Link
-            href="/"
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors hover:opacity-80 border"
-            style={{ borderColor: colors.gray400, color: colors.text, backgroundColor: colors.surface }}
-          >
-            ← חזרה לדשבורד
-          </Link>
-        </div>
-        <div className="text-center">
-          <h1 className="text-3xl font-bold" style={{ color: colors.primaryGreen }}>
-            הפקת קבלות
-          </h1>
-          <p className="mt-1" style={{ color: colors.muted }}>
-            העלאת קובץ ממערכת שקד והפקת קבלות בחשבונית ירוקה
-          </p>
-        </div>
-      </header>
+    <div className="min-h-screen px-5 py-8 md:px-8 md:py-10 max-w-[1400px] mx-auto">
+      <PageHeader
+        title="הפקת קבלות"
+        subtitle="העלאת קובץ ממערכת שקד והפקת קבלות בחשבונית ירוקה"
+        accent={colors.primaryGreen}
+      />
 
       <MonthSelector disabled={generating || matchLoading} onChange={handleMonthChange} />
 

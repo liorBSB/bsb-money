@@ -28,7 +28,7 @@ const CARDS = [
     href: '/accountant',
     title: 'דוח לרואה חשבון',
     eyebrow: 'דוחות חודשיים',
-    description: 'בניית דוח חיוב שכר דירה מתוך קבלות שכבר קיימות בחשבונית ירוקה לחודש שנבחר.',
+    description: 'בניית דוח חיוב שכר דירה מתוך כל הקבלות (קבלה) שהופקו ב-Morning לחודש שנבחר.',
     color: 'secondaryText',
     requiresMonthPick: true,
   },
@@ -121,14 +121,8 @@ export default function Dashboard() {
   const { selectedMonth, setSelectedMonth } = useMonth();
   const [modalCard, setModalCard] = useState(null);
 
-  const cardClassName = 'group block rounded-2xl border p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md text-right cursor-pointer focus:outline-none focus:ring-4';
-  const cardStyle = {
-    backgroundColor: colors.surface,
-    borderColor: colors.gray200,
-    borderWidth: 1,
-    boxShadow: '0 8px 24px rgba(16,24,40,0.05)',
-    '--tw-ring-color': 'rgba(11,95,58,0.12)',
-  };
+  const cardClassName = 'app-glass focus-ring group block p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_56px_-20px_rgba(16,24,40,0.35)] text-right cursor-pointer';
+  const cardStyle = {};
 
   const renderCardBody = (card, featured = false) => (
     <>
@@ -166,32 +160,27 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen px-5 py-8 md:px-8 md:py-10">
-      <header className="mx-auto mb-8 max-w-6xl">
-        <div className="flex flex-col gap-6 rounded-2xl border p-7 shadow-sm md:flex-row md:items-center md:justify-between"
-          style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.gray200,
-          }}
-        >
+      <header className="mx-auto mb-8 max-w-6xl app-fade-in">
+        <div className="app-glass flex flex-col gap-6 p-8 md:flex-row md:items-center md:justify-between md:p-10">
           <div>
             <p className="text-sm font-extrabold uppercase tracking-[0.22em]" style={{ color: colors.gold }}>
-              מערכת כספים
+              לוח בקרה
             </p>
             <h1 className="mt-3 text-4xl font-extrabold tracking-tight md:text-5xl" style={{ color: colors.primaryGreen }}>
-              BSB Money
+              ברוך הבא
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7" style={{ color: colors.muted }}>
               ניהול קבלות, ייצוא ל-CRM והפקת דוחות חודשיים בצורה מסודרת ומהירה.
             </p>
           </div>
           <div
-            className="rounded-xl border px-5 py-4 text-right"
-            style={{ backgroundColor: 'rgba(11,95,58,0.06)', borderColor: 'rgba(11,95,58,0.14)' }}
+            className="rounded-2xl border px-6 py-5 text-right"
+            style={{ backgroundColor: 'rgba(11,95,58,0.07)', borderColor: 'rgba(11,95,58,0.16)' }}
           >
-            <p className="text-sm font-semibold" style={{ color: colors.muted }}>
+            <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.muted }}>
               חודש נוכחי
             </p>
-            <p className="mt-1 text-2xl font-extrabold" style={{ color: colors.primaryGreen }}>
+            <p className="mt-1.5 text-2xl font-extrabold" style={{ color: colors.primaryGreen }}>
               {HEBREW_MONTHS[selectedMonth.month]} {selectedMonth.year}
             </p>
           </div>

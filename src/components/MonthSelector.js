@@ -17,13 +17,7 @@ export default function MonthSelector({ disabled = false, onChange }) {
   };
 
   return (
-    <section
-      className="mb-8 flex items-center justify-between gap-4 rounded-2xl border p-5 shadow-sm flex-wrap"
-      style={{
-        backgroundColor: colors.surface,
-        borderColor: colors.gray200,
-      }}
-    >
+    <section className="app-glass mb-8 flex items-center justify-between gap-4 p-5 flex-wrap">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: colors.gold }}>
           תקופת עבודה

@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import colors from '@/app/colors';
-import { exportRentChargeXlsx, downloadRentChargeXlsx } from '@/lib/rentChargeExport';
+import { exportRentChargeXlsx, downloadRentChargeXlsx, buildRentChargeSummary, formatAmountWithShekel } from '@/lib/rentChargeExport';
 
 const DISPLAY_COLUMNS = [
   { key: 'soldierName', label: 'שם חייל/ת', width: '160px' },
@@ -19,6 +19,11 @@ const HEBREW_MONTHS = [
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ];
 
+function formatCellValue(col, row) {
+  if (col.key === 'amount') return formatAmountWithShekel(row.amount);
+  return row[col.key];
+}
+
 export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle }) {
   const enteredCount = useMemo(
     () => rentRecords.filter(r => r.sfEntered).length,
@@ -29,6 +34,8 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
   const monthName = HEBREW_MONTHS[selectedMonth.month];
   const shortYear = String(selectedMonth.year).slice(-2);
   const title = `חיוב שכר דירה חודש ${monthName} ${shortYear}`;
+
+  const summary = useMemo(() => buildRentChargeSummary(rentRecords), [rentRecords]);
 
   const handleDownload = useCallback(() => {
     const buf = exportRentChargeXlsx(rentRecords, selectedMonth);
@@ -112,13 +119,34 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
                         </button>
                       </div>
                     ) : (
-                      <span className={col.key === 'description' ? '' : 'whitespace-nowrap'}>{row[col.key]}</span>
+                      <span className={col.key === 'description' ? '' : 'whitespace-nowrap'}>
+                        {formatCellValue(col, row)}
+                      </span>
                     )}
                   </td>
                 ))}
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={DISPLAY_COLUMNS.length + 1} className="px-2 py-3" style={{ backgroundColor: colors.gray100 }}>
+                <p className="text-sm font-bold mb-2" style={{ color: colors.text }}>
+                  סיכום לפי אופן תשלום
+                </p>
+                <div className="space-y-1">
+                  {summary.byMethod.map(item => (
+                    <p key={item.label} className="text-sm" style={{ color: colors.text }}>
+                      {item.label}: {item.count} קבלות, {formatAmountWithShekel(item.total)}
+                    </p>
+                  ))}
+                </div>
+                <p className="text-sm font-bold mt-3" style={{ color: colors.primaryGreen }}>
+                  סה״כ: {summary.count} קבלות, {formatAmountWithShekel(summary.grandTotal)}
+                </p>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

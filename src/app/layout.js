@@ -1,5 +1,6 @@
 import "./globals.css";
 import { MonthProvider } from "@/lib/monthContext";
+import AppNavbar from "@/components/AppNavbar";
 import { Heebo, Poppins } from "next/font/google";
 
 const heebo = Heebo({
@@ -35,6 +36,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${heebo.variable} ${poppins.variable} min-h-screen antialiased`}>
         <MonthProvider>
+          <AppNavbar />
           {children}
         </MonthProvider>
       </body>

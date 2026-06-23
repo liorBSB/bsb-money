@@ -5,6 +5,14 @@ const isMock = () => process.env.GREEN_INVOICE_MOCK !== 'false';
 
 let mockCounter = 10000;
 
+function getRequiredEnv(name) {
+  const value = (process.env[name] || '').trim();
+  if (!value) {
+    throw new Error(`Missing ${name} in environment (.env.local recommended)`);
+  }
+  return value;
+}
+
 async function fetchWithTimeout(url, options, ms = 15000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
@@ -22,17 +30,21 @@ async function fetchWithTimeout(url, options, ms = 15000) {
   }
 }
 
+function buildApiUrl(path) {
+  const base = getRequiredEnv('GREEN_INVOICE_API_URL');
+  return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
 async function getToken() {
   if (isMock()) {
     return 'mock-jwt-token-for-testing';
   }
-  const apiUrl = process.env.GREEN_INVOICE_API_URL;
-  const res = await fetchWithTimeout(`${apiUrl}account/token`, {
+  const res = await fetchWithTimeout(buildApiUrl('account/token'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      id: process.env.GREEN_INVOICE_KEY,
-      secret: process.env.GREEN_INVOICE_SECRET,
+      id: getRequiredEnv('GREEN_INVOICE_KEY'),
+      secret: getRequiredEnv('GREEN_INVOICE_SECRET'),
     }),
   }, 15000);
 
@@ -118,10 +130,9 @@ async function createReceipt(token, record) {
     };
   }
 
-  const apiUrl = process.env.GREEN_INVOICE_API_URL;
   const payload = buildReceiptPayload(record);
 
-  const res = await fetchWithTimeout(`${apiUrl}documents`, {
+  const res = await fetchWithTimeout(buildApiUrl('documents'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -176,13 +187,12 @@ export async function processOneReceipt(token, record) {
 export async function searchExistingReceipts(token, fromDate, toDate) {
   if (isMock()) return [];
 
-  const apiUrl = process.env.GREEN_INVOICE_API_URL;
   const all = [];
   let page = 1;
   const pageSize = 50;
 
   while (true) {
-    const url = `${apiUrl}documents/search`;
+    const url = buildApiUrl('documents/search');
     const res = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
@@ -234,4 +244,155 @@ export async function searchExistingReceipts(token, fromDate, toDate) {
  */
 export async function authenticate() {
   return await getToken();
+}
+
+function monthDateRange(selectedMonth) {
+  const { month, year } = selectedMonth;
+  const mm = String(month + 1).padStart(2, '0');
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return {
+    fromDate: `${year}-${mm}-01`,
+    toDate: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+function mapDocToAccountantReceipt(doc) {
+  const payment = Array.isArray(doc.payment) ? doc.payment[0] : null;
+  return {
+    id: doc.id || '',
+    clientName: doc.client?.name || '',
+    amount: doc.amount ?? payment?.price ?? 0,
+    receiptNumber: doc.number,
+    documentDate: doc.documentDate || '',
+    description: doc.description || doc.remarks || '',
+    remarks: doc.remarks || '',
+    payType: payment?.type ?? null,
+  };
+}
+
+const MOCK_ACCOUNTANT_RECEIPTS = [
+  {
+    id: 'mock-1',
+    clientName: 'דני לוי',
+    amount: 500,
+    receiptNumber: 10001,
+    documentDate: '2025-06-05',
+    description: 'תשלום שכר דירה חייל/ת בבית- יוני 2025',
+    remarks: '',
+    payType: 1,
+  },
+  {
+    id: 'mock-2',
+    clientName: 'שרה כהן',
+    amount: 600,
+    receiptNumber: 10002,
+    documentDate: '2025-06-01',
+    description: 'תשלום שכר דירה חייל/ת בבית- יוני 2025',
+    remarks: '',
+    payType: 4,
+  },
+  {
+    id: 'mock-3',
+    clientName: 'יוסי אברהם',
+    amount: 450,
+    receiptNumber: 10003,
+    documentDate: '2025-06-12',
+    description: 'תשלום שכר דירה חייל/ת בבית- יוני 2025',
+    remarks: '',
+    payType: 4,
+  },
+];
+
+async function getDocument(token, id) {
+  const res = await fetchWithTimeout(buildApiUrl(`documents/${id}`), {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  }, 20000);
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    console.error(`Get document API returned non-JSON (${res.status}):`, text.slice(0, 200));
+    throw new Error(`Get document API returned status ${res.status} (non-JSON response)`);
+  }
+
+  const data = await res.json();
+
+  if (data.errorCode && data.errorCode !== 0) {
+    throw new Error(`Get document failed: ${data.errorMessage || 'Unknown error'}`);
+  }
+
+  return data;
+}
+
+async function searchAccountantReceiptsPage(token, fromDate, toDate, page, pageSize) {
+  const res = await fetchWithTimeout(buildApiUrl('documents/search'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      type: [400],
+      fromDate,
+      toDate,
+      page,
+      pageSize,
+      sort: 'documentDate',
+    }),
+  }, 20000);
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    console.error(`Search API returned non-JSON (${res.status}):`, text.slice(0, 200));
+    throw new Error(`Search API returned status ${res.status} (non-JSON response)`);
+  }
+
+  const data = await res.json();
+
+  if (data.errorCode && data.errorCode !== 0) {
+    throw new Error(`Search failed: ${data.errorMessage || 'Unknown error'}`);
+  }
+
+  return data;
+}
+
+/**
+ * Server Action: fetch all soldier receipts (type 400 / קבלה) for an entire month.
+ * Returns { clientName, amount, receiptNumber, documentDate, description, remarks, payType, id }[].
+ */
+export async function fetchAccountantReceipts(token, selectedMonth) {
+  if (isMock()) {
+    return MOCK_ACCOUNTANT_RECEIPTS.map(r => ({ ...r }));
+  }
+
+  const { fromDate, toDate } = monthDateRange(selectedMonth);
+  const all = [];
+  let page = 1;
+  const pageSize = 50;
+
+  while (true) {
+    const data = await searchAccountantReceiptsPage(token, fromDate, toDate, page, pageSize);
+
+    for (const doc of (data.items || [])) {
+      all.push(mapDocToAccountantReceipt(doc));
+    }
+
+    if (page >= (data.pages || 1)) break;
+    page++;
+  }
+
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].payType != null) continue;
+    if (!all[i].id) continue;
+    const detail = await getDocument(token, all[i].id);
+    const enriched = mapDocToAccountantReceipt(detail);
+    all[i] = { ...all[i], ...enriched, id: all[i].id };
+  }
+
+  return all;
 }
