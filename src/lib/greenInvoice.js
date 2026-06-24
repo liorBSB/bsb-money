@@ -256,6 +256,13 @@ function monthDateRange(selectedMonth) {
   };
 }
 
+function accountantReportDateRange(selectedMonth) {
+  const { month, year } = selectedMonth;
+  const mm = String(month + 1).padStart(2, '0');
+  const firstDay = `${year}-${mm}-01`;
+  return { fromDate: firstDay, toDate: firstDay };
+}
+
 function mapDocToAccountantReceipt(doc) {
   const payment = Array.isArray(doc.payment) ? doc.payment[0] : null;
   return {
@@ -362,15 +369,17 @@ async function searchAccountantReceiptsPage(token, fromDate, toDate, page, pageS
 }
 
 /**
- * Server Action: fetch all soldier receipts (type 400 / קבלה) for an entire month.
+ * Server Action: fetch soldier receipts (type 400 / קבלה) issued on the 1st of the month.
  * Returns { clientName, amount, receiptNumber, documentDate, description, remarks, payType, id }[].
  */
 export async function fetchAccountantReceipts(token, selectedMonth) {
-  if (isMock()) {
-    return MOCK_ACCOUNTANT_RECEIPTS.map(r => ({ ...r }));
-  }
+  const { fromDate, toDate } = accountantReportDateRange(selectedMonth);
 
-  const { fromDate, toDate } = monthDateRange(selectedMonth);
+  if (isMock()) {
+    return MOCK_ACCOUNTANT_RECEIPTS
+      .filter(r => r.documentDate === fromDate)
+      .map(r => ({ ...r }));
+  }
   const all = [];
   let page = 1;
   const pageSize = 50;

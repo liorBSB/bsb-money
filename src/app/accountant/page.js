@@ -61,7 +61,7 @@ export default function AccountantPage() {
     <div className="min-h-screen px-5 py-8 md:px-8 md:py-10 max-w-[1400px] mx-auto">
       <PageHeader
         title="דוח לרואה חשבון"
-        subtitle="דוח חיוב שכר דירה מתוך כל הקבלות (קבלה) שהופקו ב-Morning לחודש שנבחר"
+        subtitle="דוח חיוב שכר דירה מתוך קבלות (קבלה) שהופקו ב-Morning ב-1 לחודש שנבחר"
         accent={colors.secondaryText}
       />
 
@@ -145,7 +145,7 @@ export default function AccountantPage() {
           style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
         >
           <p className="text-base font-semibold" style={{ color: colors.text }}>
-            לא נמצאו קבלות (קבלה) לחודש {HEBREW_MONTHS[selectedMonth.month]} {selectedMonth.year}
+            לא נמצאו קבלות (קבלה) ל-1 ב{HEBREW_MONTHS[selectedMonth.month]} {selectedMonth.year}
           </p>
         </div>
       )}

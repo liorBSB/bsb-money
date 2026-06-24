@@ -224,7 +224,7 @@ describe('fetchAccountantReceipts', () => {
     vi.stubEnv('GREEN_INVOICE_MOCK', 'false');
   });
 
-  it('searches type 400 for the full month and maps payment from search', async () => {
+  it('searches type 400 for the 1st of the month and maps payment from search', async () => {
     mockFetchResponse({
       errorCode: 0,
       pages: 1,
@@ -254,7 +254,7 @@ describe('fetchAccountantReceipts', () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.type).toEqual([400]);
     expect(body.fromDate).toBe('2025-06-01');
-    expect(body.toDate).toBe('2025-06-30');
+    expect(body.toDate).toBe('2025-06-01');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -266,7 +266,7 @@ describe('fetchAccountantReceipts', () => {
         id: 'doc-2',
         number: 124,
         amount: 600,
-        documentDate: '2025-06-15',
+        documentDate: '2025-06-01',
         client: { name: 'דני לוי' },
       }],
     });
@@ -276,7 +276,7 @@ describe('fetchAccountantReceipts', () => {
       id: 'doc-2',
       number: 124,
       amount: 600,
-      documentDate: '2025-06-15',
+      documentDate: '2025-06-01',
       client: { name: 'דני לוי' },
       payment: [{ type: 4, price: 600 }],
     });
@@ -310,7 +310,7 @@ describe('fetchAccountantReceipts', () => {
         id: 'doc-b',
         number: 2,
         amount: 200,
-        documentDate: '2025-01-02',
+        documentDate: '2025-01-01',
         client: { name: 'ב' },
         payment: [{ type: 1, price: 200 }],
       }],
@@ -333,9 +333,12 @@ describe('fetchAccountantReceipts mock mode', () => {
 
     const result = await fetchMock('token', { month: 5, year: 2025 });
 
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.some(r => r.payType === 1)).toBe(true);
-    expect(result.some(r => r.payType === 4)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      clientName: 'שרה כהן',
+      documentDate: '2025-06-01',
+      payType: 4,
+    });
     expect(fetch).not.toHaveBeenCalled();
 
     vi.stubEnv('GREEN_INVOICE_MOCK', 'false');

@@ -23,35 +23,33 @@ function wordsOf(str) {
 }
 
 /**
- * Case-insensitive fuzzy matcher for receipts: tries exact, reverse-words,
- * and word-subset matches against the list of existing Green Invoice docs.
+ * Case-insensitive fuzzy matcher for a single receipt: exact, reverse-words,
+ * or word-subset match against the query.
  */
-function findReceiptByName(query, docs) {
+function receiptMatchesQuery(doc, query) {
   const q = normalizeForCompare(query);
-  if (!q || !docs?.length) return null;
+  const client = normalizeForCompare(doc.clientName);
+  if (!q || !client) return false;
 
-  for (const doc of docs) {
-    if (normalizeForCompare(doc.clientName) === q) return doc;
-  }
+  if (client === q) return true;
 
   const reversed = q.split(' ').reverse().join(' ');
-  for (const doc of docs) {
-    if (normalizeForCompare(doc.clientName) === reversed) return doc;
-  }
+  if (client === reversed) return true;
 
   const queryWords = wordsOf(query);
-  if (!queryWords.length) return null;
+  const docWords = wordsOf(doc.clientName);
+  if (!queryWords.length || !docWords.length) return false;
 
-  for (const doc of docs) {
-    const docWords = wordsOf(doc.clientName);
-    if (!docWords.length) continue;
-    const allQueryInDoc = queryWords.every(w => docWords.includes(w));
-    if (allQueryInDoc) return doc;
-    const allDocInQuery = docWords.every(w => queryWords.includes(w));
-    if (allDocInQuery) return doc;
-  }
+  const allQueryInDoc = queryWords.every(w => docWords.includes(w));
+  if (allQueryInDoc) return true;
 
-  return null;
+  return docWords.every(w => queryWords.includes(w));
+}
+
+/** Returns every receipt whose client name matches the query. */
+function findReceiptsByName(query, docs) {
+  if (!normalizeForCompare(query) || !docs?.length) return [];
+  return docs.filter(doc => receiptMatchesQuery(doc, query));
 }
 
 function NotFoundModal({ open, name, nameInRecords, onClose }) {
@@ -121,11 +119,62 @@ function formatCurrency(n) {
   return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(n);
 }
 
+function ReceiptResultCard({ result }) {
+  return (
+    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+      <div>
+        <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
+          שם החייל
+        </dt>
+        <dd className="text-base font-medium" style={{ color: colors.text }}>
+          {result.name || '—'}
+        </dd>
+      </div>
+
+      <div>
+        <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
+          סכום
+        </dt>
+        <dd className="text-base font-medium" style={{ color: colors.text }}>
+          {result.amount != null ? formatCurrency(result.amount) : '—'}
+        </dd>
+      </div>
+
+      <div>
+        <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
+          מספר קבלה
+        </dt>
+        <dd className="text-base font-medium" style={{ color: colors.text }}>
+          {result.receiptNumber || '—'}
+        </dd>
+      </div>
+
+      <div>
+        <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
+          מזהה Salesforce
+        </dt>
+        <dd className="text-base font-medium" style={{ color: result.accountId ? colors.text : colors.muted }}>
+          {result.accountId || 'לא נמצא במיפוי'}
+        </dd>
+      </div>
+
+      <div className="sm:col-span-2">
+        <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
+          תיאור
+        </dt>
+        <dd className="text-base whitespace-pre-wrap" style={{ color: colors.text }}>
+          {result.description || '—'}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 export default function ReceiptLookupPage() {
   const { selectedMonth } = useMonth();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [results, setResults] = useState([]);
   const [notFound, setNotFound] = useState(null);
   const [error, setError] = useState(null);
 
@@ -141,7 +190,7 @@ export default function ReceiptLookupPage() {
       return;
     }
     setError(null);
-    setResult(null);
+    setResults([]);
     setNotFound(null);
     setLoading(true);
 
@@ -159,9 +208,9 @@ export default function ReceiptLookupPage() {
 
       const map = mapResult?.map || new Map();
       const leftMap = mapResult?.leftMap || new Map();
-      const match = findReceiptByName(trimmed, docs);
+      const matches = findReceiptsByName(trimmed, docs);
 
-      if (!match) {
+      if (!matches.length) {
         const accountIdInRecords = findAccountId(trimmed, map, leftMap);
         setNotFound({
           name: trimmed,
@@ -170,15 +219,15 @@ export default function ReceiptLookupPage() {
         return;
       }
 
-      const accountId = findAccountId(match.clientName, map, leftMap);
-
-      setResult({
-        name: match.clientName,
-        amount: match.amount,
-        receiptNumber: match.receiptNumber,
-        description: match.description,
-        accountId,
-      });
+      setResults(
+        matches.map(match => ({
+          name: match.clientName,
+          amount: match.amount,
+          receiptNumber: match.receiptNumber,
+          description: match.description,
+          accountId: findAccountId(match.clientName, map, leftMap),
+        })),
+      );
     } catch (err) {
       console.error('Receipt lookup failed:', err);
       setError('שגיאה בחיפוש: ' + (err.message || 'Unknown error'));
@@ -195,7 +244,7 @@ export default function ReceiptLookupPage() {
   };
 
   const handleResetSearch = () => {
-    setResult(null);
+    setResults([]);
     setError(null);
     setName('');
   };
@@ -208,7 +257,7 @@ export default function ReceiptLookupPage() {
         accent={colors.secondaryText}
       />
 
-      <MonthSelector disabled={loading} onChange={() => setResult(null)} />
+      <MonthSelector disabled={loading} onChange={() => setResults([])} />
 
       <section
         className="mb-6 rounded-xl border p-5"
@@ -267,14 +316,14 @@ export default function ReceiptLookupPage() {
         </div>
       )}
 
-      {!loading && result && (
+      {!loading && results.length > 0 && (
         <section
           className="rounded-xl border-2 p-6"
           style={{ backgroundColor: '#fff', borderColor: colors.secondaryText }}
         >
           <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
             <h2 className="text-xl font-bold" style={{ color: colors.secondaryText }}>
-              נמצאה קבלה
+              {results.length === 1 ? 'נמצאה קבלה' : `נמצאו ${results.length} קבלות`}
             </h2>
             <span
               className="text-sm px-3 py-1 rounded-full font-medium"
@@ -284,52 +333,22 @@ export default function ReceiptLookupPage() {
             </span>
           </div>
 
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
-                שם החייל
-              </dt>
-              <dd className="text-base font-medium" style={{ color: colors.text }}>
-                {result.name || '—'}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
-                סכום
-              </dt>
-              <dd className="text-base font-medium" style={{ color: colors.text }}>
-                {result.amount != null ? formatCurrency(result.amount) : '—'}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
-                מספר קבלה
-              </dt>
-              <dd className="text-base font-medium" style={{ color: colors.text }}>
-                {result.receiptNumber || '—'}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
-                מזהה Salesforce
-              </dt>
-              <dd className="text-base font-medium" style={{ color: result.accountId ? colors.text : colors.muted }}>
-                {result.accountId || 'לא נמצא במיפוי'}
-              </dd>
-            </div>
-
-            <div className="sm:col-span-2">
-              <dt className="text-xs font-semibold mb-1" style={{ color: colors.muted }}>
-                תיאור
-              </dt>
-              <dd className="text-base whitespace-pre-wrap" style={{ color: colors.text }}>
-                {result.description || '—'}
-              </dd>
-            </div>
-          </dl>
+          <div className="space-y-6">
+            {results.map((result, index) => (
+              <div
+                key={result.receiptNumber ?? `${result.name}-${index}`}
+                className={index > 0 ? 'pt-6 border-t' : undefined}
+                style={index > 0 ? { borderColor: colors.gray400 } : undefined}
+              >
+                {results.length > 1 && (
+                  <p className="text-sm font-semibold mb-4" style={{ color: colors.muted }}>
+                    תוצאה {index + 1} מתוך {results.length}
+                  </p>
+                )}
+                <ReceiptResultCard result={result} />
+              </div>
+            ))}
+          </div>
 
           <div className="mt-6 flex justify-end">
             <button
