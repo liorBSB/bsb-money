@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import {
   buildRentChargeRecordsFromMorning,
   buildRentChargeSummary,
+  createManualRentChargeRecord,
   payTypeToHebrew,
   exportRentChargeXlsx,
 } from '../rentChargeExport';
@@ -62,6 +63,32 @@ describe('buildRentChargeRecordsFromMorning', () => {
     const records = buildRentChargeRecordsFromMorning(docs, true);
     expect(records[0].description).toBe('הערה');
     expect(records[0].sfEntered).toBe(true);
+  });
+});
+
+describe('createManualRentChargeRecord', () => {
+  it('builds a manual rent record with formatted date and payment label', () => {
+    const record = createManualRentChargeRecord({
+      soldierName: ' דני לוי ',
+      description: 'תשלום ידני',
+      documentDate: '2025-06-03',
+      amount: '750',
+      payType: '4',
+      receiptNumber: '12345',
+      sfEntered: false,
+    });
+
+    expect(record.manual).toBe(true);
+    expect(record._id).toMatch(/^manual-/);
+    expect(record).toMatchObject({
+      soldierName: 'דני לוי',
+      description: 'תשלום ידני',
+      date: '03/06/2025',
+      amount: 750,
+      transferMethod: 'העברה בנקאית',
+      receiptNumber: '12345',
+      sfEntered: false,
+    });
   });
 });
 

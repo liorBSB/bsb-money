@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import colors from '@/app/colors';
 import { exportRentChargeXlsx, downloadRentChargeXlsx, buildRentChargeSummary, formatAmountWithShekel } from '@/lib/rentChargeExport';
 
@@ -14,6 +14,9 @@ const DISPLAY_COLUMNS = [
   { key: 'sfEntered', label: 'הוזן ב-SF', width: '90px', toggle: true },
 ];
 
+const OTHER_COLUMNS = DISPLAY_COLUMNS.filter(col => col.key !== 'soldierName');
+const SOLDIER_NAME_COLUMN = DISPLAY_COLUMNS.find(col => col.key === 'soldierName');
+
 const HEBREW_MONTHS = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
@@ -24,7 +27,89 @@ function formatCellValue(col, row) {
   return row[col.key];
 }
 
-export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle }) {
+function RemoveReceiptModal({ open, soldierName, onConfirm, onCancel }) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="rounded-2xl p-6 w-full max-w-md shadow-xl text-center"
+        style={{ backgroundColor: '#fff' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-xl font-bold mb-2" style={{ color: colors.text }}>
+          להסיר מהדוח?
+        </h3>
+        <p className="text-sm mb-6" style={{ color: colors.muted }}>
+          האם להסיר את <strong style={{ color: colors.text }}>{soldierName}</strong> מהדוח?
+          <br />
+          הקבלה לא תימחק מ-Morning.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl px-6 py-2.5 text-sm font-semibold border"
+            style={{ borderColor: colors.gray400, color: colors.text }}
+          >
+            ביטול
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-xl px-6 py-2.5 text-sm font-semibold"
+            style={{ backgroundColor: colors.red, color: colors.white }}
+          >
+            הסר מהדוח
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SoldierNameCell({ row }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 max-w-full">
+      <span className="whitespace-nowrap">{row.soldierName}</span>
+      {row.manual && (
+        <span
+          className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+          style={{ backgroundColor: `${colors.secondaryText}18`, color: colors.secondaryText }}
+        >
+          ידני
+        </span>
+      )}
+    </span>
+  );
+}
+
+function RemoveCell({ row, onRemoveRequest }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onRemoveRequest(row)}
+      className="w-7 h-7 rounded border-2 flex items-center justify-center text-sm font-bold transition-colors mx-auto"
+      style={{
+        borderColor: colors.red,
+        backgroundColor: `${colors.red}10`,
+        color: colors.red,
+      }}
+      title="הסר מהדוח"
+      aria-label={`הסר את ${row.soldierName} מהדוח`}
+    >
+      ✕
+    </button>
+  );
+}
+
+export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle, onRemove }) {
+  const [pendingRemove, setPendingRemove] = useState(null);
+
   const enteredCount = useMemo(
     () => rentRecords.filter(r => r.sfEntered).length,
     [rentRecords]
@@ -43,10 +128,34 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
     downloadRentChargeXlsx(buf, `חיוב_שכר_דירה_${selectedMonth.year}-${monthStr}.xlsx`);
   }, [rentRecords, selectedMonth]);
 
+  const handleRemoveRequest = useCallback((row) => {
+    if (!onRemove) return;
+    setPendingRemove({ id: row._id, soldierName: row.soldierName || 'רשומה זו' });
+  }, [onRemove]);
+
+  const handleRemoveConfirm = useCallback(() => {
+    if (pendingRemove && onRemove) {
+      onRemove(pendingRemove.id);
+    }
+    setPendingRemove(null);
+  }, [pendingRemove, onRemove]);
+
+  const handleRemoveCancel = useCallback(() => {
+    setPendingRemove(null);
+  }, []);
+
   if (!rentRecords.length) return null;
+
+  const columnCount = DISPLAY_COLUMNS.length + 1 + (onRemove ? 1 : 0);
 
   return (
     <div className="mt-10">
+      <RemoveReceiptModal
+        open={Boolean(pendingRemove)}
+        soldierName={pendingRemove?.soldierName}
+        onConfirm={handleRemoveConfirm}
+        onCancel={handleRemoveCancel}
+      />
       <div className="mb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
@@ -72,13 +181,27 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
         <table className="w-full text-xs" style={{ direction: 'rtl' }}>
           <thead>
             <tr style={{ backgroundColor: colors.primaryGreen }}>
+              {onRemove && (
+                <th
+                  className="px-1 py-2.5 text-center font-semibold whitespace-nowrap"
+                  style={{ color: colors.white, minWidth: '48px' }}
+                >
+                  הסר
+                </th>
+              )}
               <th
-                className="px-2 py-2.5 text-right font-semibold whitespace-nowrap"
+                className="px-2 py-2.5 text-center font-semibold whitespace-nowrap"
                 style={{ color: colors.white, minWidth: '40px' }}
               >
                 #
               </th>
-              {DISPLAY_COLUMNS.map(col => (
+              <th
+                className="px-2 py-2.5 text-right font-semibold whitespace-nowrap"
+                style={{ color: colors.white, minWidth: SOLDIER_NAME_COLUMN.width }}
+              >
+                {SOLDIER_NAME_COLUMN.label}
+              </th>
+              {OTHER_COLUMNS.map(col => (
                 <th
                   key={col.key}
                   className="px-2 py-2.5 text-right font-semibold whitespace-nowrap"
@@ -99,10 +222,18 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
                   borderColor: colors.gray400,
                 }}
               >
+                {onRemove && (
+                  <td className="px-1 py-1.5 text-center">
+                    <RemoveCell row={row} onRemoveRequest={handleRemoveRequest} />
+                  </td>
+                )}
                 <td className="px-2 py-1.5 text-center" style={{ color: colors.muted }}>
                   {idx + 1}
                 </td>
-                {DISPLAY_COLUMNS.map(col => (
+                <td className="px-2 py-1.5">
+                  <SoldierNameCell row={row} />
+                </td>
+                {OTHER_COLUMNS.map(col => (
                   <td key={col.key} className="px-2 py-1.5">
                     {col.toggle ? (
                       <div className="flex items-center justify-center">
@@ -130,7 +261,7 @@ export default function RentChargeTable({ rentRecords, selectedMonth, onSfToggle
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={DISPLAY_COLUMNS.length + 1} className="px-2 py-3" style={{ backgroundColor: colors.gray100 }}>
+              <td colSpan={columnCount} className="px-2 py-3" style={{ backgroundColor: colors.gray100 }}>
                 <p className="text-sm font-bold mb-2" style={{ color: colors.text }}>
                   סיכום לפי אופן תשלום
                 </p>

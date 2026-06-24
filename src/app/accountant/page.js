@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import colors from '@/app/colors';
 import PageHeader from '@/components/PageHeader';
+import ManualReceiptForm from '@/components/ManualReceiptForm';
 import RentChargeTable from '@/components/RentChargeTable';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
@@ -55,6 +56,16 @@ export default function AccountantPage() {
     setRentRecords(prev =>
       prev.map(r => r._id === id ? { ...r, sfEntered: !r.sfEntered } : r)
     );
+  }, []);
+
+  const handleRemoveRecord = useCallback((id) => {
+    setRentRecords(prev => prev.filter(r => r._id !== id));
+    setEmptyResult(false);
+  }, []);
+
+  const handleAddManualRecord = useCallback((record) => {
+    setRentRecords(prev => [...prev, record]);
+    setEmptyResult(false);
   }, []);
 
   return (
@@ -139,7 +150,15 @@ export default function AccountantPage() {
         </div>
       )}
 
-      {!loading && emptyResult && (
+      {!loading && (
+        <ManualReceiptForm
+          selectedMonth={selectedMonth}
+          sfDefault={sfAllEntered}
+          onAdd={handleAddManualRecord}
+        />
+      )}
+
+      {!loading && emptyResult && rentRecords.length === 0 && (
         <div
           className="rounded-xl border p-8 text-center"
           style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
@@ -155,6 +174,7 @@ export default function AccountantPage() {
           rentRecords={rentRecords}
           selectedMonth={selectedMonth}
           onSfToggle={handleSfToggle}
+          onRemove={handleRemoveRecord}
         />
       )}
     </div>

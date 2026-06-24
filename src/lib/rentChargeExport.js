@@ -63,7 +63,27 @@ export function buildRentChargeRecordsFromMorning(docs, sfDefault) {
     payType: doc.payType,
     receiptNumber: doc.receiptNumber ?? '',
     sfEntered: sfDefault,
+    manual: false,
   }));
+}
+
+export function createManualRentChargeRecord(fields) {
+  const payType = fields.payType != null && fields.payType !== ''
+    ? Number(fields.payType)
+    : null;
+
+  return {
+    _id: `manual-${crypto.randomUUID()}`,
+    manual: true,
+    soldierName: (fields.soldierName || '').trim(),
+    description: (fields.description || '').trim(),
+    date: formatDateDMY(fields.documentDate),
+    amount: Number(fields.amount),
+    transferMethod: payTypeToHebrew(payType),
+    payType,
+    receiptNumber: String(fields.receiptNumber ?? '').trim(),
+    sfEntered: Boolean(fields.sfEntered),
+  };
 }
 
 export function buildRentChargeSummary(rentRecords) {

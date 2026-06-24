@@ -7,7 +7,8 @@ vi.stubEnv('GREEN_INVOICE_API_URL', 'https://api.test.com/');
 vi.stubEnv('GREEN_INVOICE_KEY', 'test-key');
 vi.stubEnv('GREEN_INVOICE_SECRET', 'test-secret');
 
-const { authenticate, processOneReceipt, fetchAccountantReceipts, isSoldierPaymentReceipt } = await import('../greenInvoice');
+const { authenticate, processOneReceipt, fetchAccountantReceipts } = await import('../greenInvoice');
+const { isSoldierPaymentReceipt } = await import('../soldierPaymentFilter');
 
 function makeRecord(overrides = {}) {
   return {
