@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx';
 import { findAccountId } from '@/lib/googleSheets';
 
+export const SOLDIER_CONTACT_RID_FIELD = 'Soldier_Contact__r.id';
+
 const RECORD_TYPE_ID = '012b0000000HvT9AAK';
 const EVENT = 'soldiers HK';
 const BANK_ACCOUNT = 'Hapoalim';
@@ -33,7 +35,7 @@ function buildDescription(month, year) {
 }
 
 const CRM_COLUMNS = [
-  'RecordTypeId', 'Name', 'Amount', 'Event__c', 'Accountid',
+  'RecordTypeId', 'Name', 'Amount', 'Event__c', SOLDIER_CONTACT_RID_FIELD,
   'cash_cheque_pp__c', 'Receipt_Num__c', 'Bank_account__c',
   'CloseDate', 'StageName', 'Description', 'CurrencyIsoCode',
 ];
@@ -42,7 +44,7 @@ const CRM_COLUMNS = [
  * Transforms successful receipt records into CRM row objects.
  * selectedMonth is { month: 0-11, year: number }
  */
-export function buildCrmRecords(records, accountIdMap, selectedMonth) {
+export function buildCrmRecords(records, accountIdMap, selectedMonth, leftMap = null) {
   const today = formatTodayDMY();
   const closeDate = `${selectedMonth.year}-${String(selectedMonth.month + 1).padStart(2, '0')}-01`;
   const description = buildDescription(selectedMonth.month, selectedMonth.year);
@@ -50,13 +52,13 @@ export function buildCrmRecords(records, accountIdMap, selectedMonth) {
   return records
     .filter(r => r.receiptStatus === 'done')
     .map(r => {
-      const accountId = findAccountId(r.name, accountIdMap) || '';
+      const soldierContactRid = findAccountId(r.name, accountIdMap, leftMap) || '';
       return {
         RecordTypeId: RECORD_TYPE_ID,
         Name: `${r.name}-Donation ${today}`,
         Amount: r.amount,
         Event__c: EVENT,
-        Accountid: accountId,
+        [SOLDIER_CONTACT_RID_FIELD]: soldierContactRid,
         cash_cheque_pp__c: PAY_TYPE_EN[r.payType] || 'BankTransfer',
         Receipt_Num__c: r.receiptNumber || '',
         Bank_account__c: BANK_ACCOUNT,
@@ -64,7 +66,7 @@ export function buildCrmRecords(records, accountIdMap, selectedMonth) {
         StageName: STAGE_NAME,
         Description: description,
         CurrencyIsoCode: CURRENCY,
-        _matched: !!accountId,
+        _matched: !!soldierContactRid,
         _originalName: r.name,
         _id: r.id,
       };
@@ -76,7 +78,7 @@ const COL_WIDTHS = [
   { wch: 38 },  // Name
   { wch: 10 },  // Amount
   { wch: 14 },  // Event__c
-  { wch: 20 },  // Accountid
+  { wch: 20 },  // Soldier_Contact__r.id
   { wch: 16 },  // cash_cheque_pp__c
   { wch: 14 },  // Receipt_Num__c
   { wch: 14 },  // Bank_account__c

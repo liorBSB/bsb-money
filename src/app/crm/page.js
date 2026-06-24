@@ -11,7 +11,7 @@ import { useMonth } from '@/lib/monthContext';
 import { authenticate, searchExistingReceipts } from '@/lib/greenInvoice';
 import { processBankFile, getMonthDateRange, matchExistingReceipts, extractReportMonth } from '@/lib/processBank';
 import { fetchAccountIdMap } from '@/lib/googleSheets';
-import { buildCrmRecords } from '@/lib/crmExport';
+import { buildCrmRecords, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
 
 export default function CrmPage() {
   const { selectedMonth } = useMonth();
@@ -32,8 +32,8 @@ export default function CrmPage() {
   }, []);
 
   const buildAndShow = useCallback(async (records) => {
-    const { map } = await fetchAccountIdMap();
-    setCrmRecords(buildCrmRecords(records, map, selectedMonth));
+    const { map, leftMap } = await fetchAccountIdMap();
+    setCrmRecords(buildCrmRecords(records, map, selectedMonth, leftMap));
   }, [selectedMonth]);
 
   const handleFileProcessed = useCallback(async (arrayBuffer) => {
@@ -110,7 +110,7 @@ export default function CrmPage() {
       prev.map(r => {
         if (r._id !== recordId) return r;
         const next = { ...r, [key]: value };
-        if (key === 'Accountid') next._matched = !!value;
+        if (key === SOLDIER_CONTACT_RID_FIELD) next._matched = !!value;
         return next;
       })
     );

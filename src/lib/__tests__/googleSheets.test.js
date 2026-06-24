@@ -33,6 +33,52 @@ describe('findAccountId', () => {
       const map = createMap([['בן דוד אברהם', 'ACC003']]);
       expect(findAccountId('אברהם דוד בן', map)).toBe('ACC003');
     });
+
+    it('matches hyphenated sheet names against reordered bank names', () => {
+      const map = createMap([['שני-הדר אבן', '322318643']]);
+      expect(findAccountId('אבן שני הדר', map)).toBe('322318643');
+    });
+  });
+
+  describe('fuzzy Hebrew spelling', () => {
+    it('matches similar surname spellings with reversed order', () => {
+      const map = createMap([['נתנאל עיאש', '227494143']]);
+      expect(findAccountId('איש נתנאל', map)).toBe('227494143');
+    });
+
+    it('matches when sheet and query spellings differ slightly', () => {
+      const map = createMap([['איש נתנאל', '227494143']]);
+      expect(findAccountId('נתנאל עיאש', map)).toBe('227494143');
+    });
+
+    it('matches double-yod bank spellings against ayin spellings', () => {
+      const map = createMap([['נתנאל עיאש', '227494143']]);
+      expect(findAccountId('אייש נתנאל', map)).toBe('227494143');
+    });
+
+    it('matches transliterated surname spellings with reordered names', () => {
+      const map = createMap([['איתן בובריק', '230477515']]);
+      expect(findAccountId('בורוביק איתן', map)).toBe('230477515');
+    });
+
+    it('matches wootton surname spellings with reordered names', () => {
+      const map = createMap([['חזי וואוטון', '230468902']]);
+      expect(findAccountId('וואוטון חזי', map)).toBe('230468902');
+      expect(findAccountId('ווטון חזי', map)).toBe('230468902');
+    });
+
+    it('picks the best candidate when multiple names share a word', () => {
+      const map = createMap([
+        ['איתן דנזגר', '111'],
+        ['איתן בובריק', '230477515'],
+      ]);
+      expect(findAccountId('בורוביק איתן', map)).toBe('230477515');
+    });
+
+    it('matches minor typos in Hebrew names', () => {
+      const map = createMap([['משה כהן', 'ACC100']]);
+      expect(findAccountId('כהן משה', map)).toBe('ACC100');
+    });
   });
 
   describe('fuzzy word matching', () => {
@@ -117,6 +163,26 @@ describe('findAccountId', () => {
       const map = createMap(entries);
       expect(findAccountId('name999', map)).toBe('ACC999');
       expect(findAccountId('nonexistent', map)).toBeNull();
+    });
+  });
+
+  describe('left sheet fallback', () => {
+    it('uses the primary map before the Left sheet map', () => {
+      const primary = createMap([['יוסי כהן', 'PRIMARY']]);
+      const left = createMap([['יוסי כהן', 'LEFT']]);
+      expect(findAccountId('יוסי כהן', primary, left)).toBe('PRIMARY');
+    });
+
+    it('falls back to the Left sheet map when primary has no match', () => {
+      const primary = createMap([['יוסי כהן', 'PRIMARY']]);
+      const left = createMap([['דני לוי', 'LEFT001']]);
+      expect(findAccountId('דני לוי', primary, left)).toBe('LEFT001');
+    });
+
+    it('returns null when neither map matches', () => {
+      const primary = createMap([['יוסי כהן', 'PRIMARY']]);
+      const left = createMap([['דני לוי', 'LEFT001']]);
+      expect(findAccountId('לא קיים', primary, left)).toBeNull();
     });
   });
 });

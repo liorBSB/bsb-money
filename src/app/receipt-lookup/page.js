@@ -153,15 +153,16 @@ export default function ReceiptLookupPage() {
         searchExistingReceipts(token, fromDate, toDate),
         fetchAccountIdMap().catch(err => {
           console.error('Failed to load Salesforce account ID map:', err);
-          return { map: new Map() };
+          return { map: new Map(), leftMap: new Map() };
         }),
       ]);
 
       const map = mapResult?.map || new Map();
+      const leftMap = mapResult?.leftMap || new Map();
       const match = findReceiptByName(trimmed, docs);
 
       if (!match) {
-        const accountIdInRecords = findAccountId(trimmed, map);
+        const accountIdInRecords = findAccountId(trimmed, map, leftMap);
         setNotFound({
           name: trimmed,
           nameInRecords: !!accountIdInRecords,
@@ -169,7 +170,7 @@ export default function ReceiptLookupPage() {
         return;
       }
 
-      const accountId = findAccountId(match.clientName, map);
+      const accountId = findAccountId(match.clientName, map, leftMap);
 
       setResult({
         name: match.clientName,

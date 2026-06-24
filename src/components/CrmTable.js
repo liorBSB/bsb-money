@@ -2,14 +2,14 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import colors from '@/app/colors';
-import { CRM_COLUMNS, exportCrmXlsx, downloadXlsx } from '@/lib/crmExport';
+import { CRM_COLUMNS, exportCrmXlsx, downloadXlsx, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
 
 const DISPLAY_COLUMNS = [
   { key: 'RecordTypeId', label: 'RecordTypeId', width: '160px' },
   { key: 'Name', label: 'Name', width: '240px' },
   { key: 'Amount', label: 'Amount', width: '90px' },
   { key: 'Event__c', label: 'Event__c', width: '110px' },
-  { key: 'Accountid', label: 'Accountid', width: '170px', editable: 'accountId' },
+  { key: SOLDIER_CONTACT_RID_FIELD, label: SOLDIER_CONTACT_RID_FIELD, width: '190px', editable: 'soldierContactRid' },
   { key: 'cash_cheque_pp__c', label: 'cash_cheque_pp__c', width: '130px' },
   { key: 'Receipt_Num__c', label: 'Receipt_Num__c', width: '120px' },
   { key: 'Bank_account__c', label: 'Bank_account__c', width: '110px' },
@@ -54,7 +54,7 @@ export default function CrmTable({ crmRecords, selectedMonth, onFieldChange }) {
           className="mb-3 rounded-lg px-4 py-2.5 text-sm font-medium"
           style={{ backgroundColor: `${colors.red}15`, color: colors.red }}
         >
-          {unmatchedCount} רשומות ללא AccountId — יש להזין ידנית
+          {unmatchedCount} רשומות ללא Soldier Contact RID — יש להזין ידנית
         </div>
       )}
 
@@ -94,12 +94,12 @@ export default function CrmTable({ crmRecords, selectedMonth, onFieldChange }) {
                 </td>
                 {DISPLAY_COLUMNS.map(col => (
                   <td key={col.key} className="px-2 py-1.5">
-                    {col.editable === 'accountId' ? (
+                    {col.editable === 'soldierContactRid' ? (
                       <input
                         type="text"
                         value={row[col.key] || ''}
                         onChange={e => onFieldChange(row._id, col.key, e.target.value)}
-                        placeholder="הזן AccountId..."
+                        placeholder="הזן Soldier Contact RID..."
                         className="w-full rounded border px-1.5 py-1 text-xs"
                         style={{
                           borderColor: row._matched ? colors.green : colors.red,
@@ -134,7 +134,7 @@ export default function CrmTable({ crmRecords, selectedMonth, onFieldChange }) {
             {crmRecords.length} רשומות
           </span>
           <span style={{ color: colors.green }}>
-            {matchedCount} עם AccountId
+            {matchedCount} עם Soldier Contact RID
           </span>
           {unmatchedCount > 0 && (
             <span style={{ color: colors.red }}>

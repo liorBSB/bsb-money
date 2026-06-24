@@ -1,5 +1,12 @@
-const SHEET_CSV_URL =
-  'https://docs.google.com/spreadsheets/d/14gsIyCSjvfHb-V27HuieQGkATrvufYEv65l6EUWTEaU/export?format=csv&gid=0';
+const SPREADSHEET_ID = '14gsIyCSjvfHb-V27HuieQGkATrvufYEv65l6EUWTEaU';
+
+const PRIMARY_SHEET_CSV_URL =
+  `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`;
+
+const LEFT_SHEET_CSV_URL =
+  `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Left`;
+
+const NAME_COL_INDEX = 0;
 
 function parseCsvLine(line) {
   const result = [];
@@ -30,31 +37,41 @@ function parseCsvLine(line) {
   return result;
 }
 
+function parseSheetEntries(csv, idColIndex) {
+  const lines = csv.split(/\r?\n/).filter(Boolean);
+  const entries = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const name = (cols[NAME_COL_INDEX] || '').replace(/[\u200e\u200f]/g, '').trim();
+    const crmId = (cols[idColIndex] || '').trim();
+    if (name && crmId) {
+      entries.push({ name, crmId });
+    }
+  }
+
+  return entries;
+}
+
+async function fetchSheetEntries(url) {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch Google Sheet: ${url}`);
+  }
+  return res.text();
+}
+
 export async function GET() {
   try {
-    const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+    const [primaryCsv, leftCsv] = await Promise.all([
+      fetchSheetEntries(PRIMARY_SHEET_CSV_URL),
+      fetchSheetEntries(LEFT_SHEET_CSV_URL),
+    ]);
 
-    if (!res.ok) {
-      return Response.json(
-        { error: 'Failed to fetch Google Sheet' },
-        { status: 502 }
-      );
-    }
-
-    const csv = await res.text();
-    const lines = csv.split(/\r?\n/).filter(Boolean);
-
-    const entries = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = parseCsvLine(lines[i]);
-      const name = (cols[0] || '').replace(/[\u200e\u200f]/g, '').trim();
-      const crmId = (cols[2] || '').trim();
-      if (name && crmId) {
-        entries.push({ name, crmId });
-      }
-    }
-
-    return Response.json(entries);
+    return Response.json({
+      primary: parseSheetEntries(primaryCsv, 2),
+      left: parseSheetEntries(leftCsv, 1),
+    });
   } catch (err) {
     return Response.json(
       { error: err.message || 'Unknown error' },

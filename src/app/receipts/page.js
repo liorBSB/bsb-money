@@ -12,7 +12,7 @@ import { useMonth } from '@/lib/monthContext';
 import { processBankFile, createEmptyRecord, exportToExcel, downloadExcel, getMonthDateRange, matchExistingReceipts, extractReportMonth } from '@/lib/processBank';
 import { authenticate, processOneReceipt, searchExistingReceipts } from '@/lib/greenInvoice';
 import { fetchAccountIdMap } from '@/lib/googleSheets';
-import { buildCrmRecords } from '@/lib/crmExport';
+import { buildCrmRecords, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
 import { buildRentChargeRecords } from '@/lib/rentChargeExport';
 
 export default function ReceiptsPage() {
@@ -24,6 +24,7 @@ export default function ReceiptsPage() {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [done, setDone] = useState(false);
   const [accountIdMap, setAccountIdMap] = useState(null);
+  const [leftMap, setLeftMap] = useState(null);
   const [crmRecords, setCrmRecords] = useState([]);
   const [crmLoading, setCrmLoading] = useState(false);
   const [fileError, setFileError] = useState(null);
@@ -64,6 +65,7 @@ export default function ReceiptsPage() {
     setCrmRecords([]);
     setRentChargeRecords([]);
     setAccountIdMap(null);
+    setLeftMap(null);
     setMatchInfo(null);
 
     setRecords(parsed);
@@ -109,6 +111,7 @@ export default function ReceiptsPage() {
     setCrmRecords([]);
     setRentChargeRecords([]);
     setAccountIdMap(null);
+    setLeftMap(null);
   }, [selectedMonth]);
 
   const handleRetryOne = useCallback((id) => {
@@ -196,9 +199,10 @@ export default function ReceiptsPage() {
   const handleBuildCrm = useCallback(async () => {
     setCrmLoading(true);
     try {
-      const { map } = await fetchAccountIdMap();
+      const { map, leftMap: left } = await fetchAccountIdMap();
       setAccountIdMap(map);
-      setCrmRecords(buildCrmRecords(records, map, selectedMonth));
+      setLeftMap(left);
+      setCrmRecords(buildCrmRecords(records, map, selectedMonth, left));
     } catch (err) {
       console.error('Failed to load CRM IDs:', err);
       alert('שגיאה בטעינת נתוני CRM: ' + err.message);
@@ -209,16 +213,16 @@ export default function ReceiptsPage() {
 
   const handleMonthChange = useCallback((newMonth) => {
     if (accountIdMap) {
-      setCrmRecords(buildCrmRecords(records, accountIdMap, newMonth));
+      setCrmRecords(buildCrmRecords(records, accountIdMap, newMonth, leftMap));
     }
-  }, [records, accountIdMap]);
+  }, [records, accountIdMap, leftMap]);
 
   const handleFieldChange = useCallback((recordId, key, value) => {
     setCrmRecords(prev =>
       prev.map(r => {
         if (r._id !== recordId) return r;
         const next = { ...r, [key]: value };
-        if (key === 'Accountid') next._matched = !!value;
+        if (key === SOLDIER_CONTACT_RID_FIELD) next._matched = !!value;
         return next;
       })
     );

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as XLSX from 'xlsx';
-import { buildCrmRecords, exportCrmXlsx, CRM_COLUMNS } from '../crmExport';
+import { buildCrmRecords, exportCrmXlsx, CRM_COLUMNS, SOLDIER_CONTACT_RID_FIELD } from '../crmExport';
 
 const accountIdMap = new Map([
   ['יוסי כהן', 'ACC001'],
@@ -35,7 +35,7 @@ describe('buildCrmRecords', () => {
     expect(result[0].RecordTypeId).toBe('012b0000000HvT9AAK');
     expect(result[0].Amount).toBe(500);
     expect(result[0].Event__c).toBe('soldiers HK');
-    expect(result[0].Accountid).toBe('ACC001');
+    expect(result[0][SOLDIER_CONTACT_RID_FIELD]).toBe('ACC001');
     expect(result[0].cash_cheque_pp__c).toBe('BankTransfer');
     expect(result[0].Receipt_Num__c).toBe(99001);
     expect(result[0].Bank_account__c).toBe('Hapoalim');
@@ -55,11 +55,11 @@ describe('buildCrmRecords', () => {
     expect(result).toHaveLength(1);
   });
 
-  it('sets _matched to false when account ID not found', () => {
+  it('sets _matched to false when soldier contact RID not found', () => {
     const records = [makeRecord({ name: 'לא קיים' })];
     const result = buildCrmRecords(records, accountIdMap, selectedMonth);
 
-    expect(result[0].Accountid).toBe('');
+    expect(result[0][SOLDIER_CONTACT_RID_FIELD]).toBe('');
     expect(result[0]._matched).toBe(false);
   });
 
@@ -142,7 +142,7 @@ describe('exportCrmXlsx', () => {
       Name: 'Test',
       Amount: 100,
       Event__c: 'E1',
-      Accountid: 'A1',
+      [SOLDIER_CONTACT_RID_FIELD]: 'A1',
       cash_cheque_pp__c: 'Cash',
       Receipt_Num__c: '123',
       Bank_account__c: 'Bank',
@@ -159,14 +159,14 @@ describe('exportCrmXlsx', () => {
     expect(data[0].RecordTypeId).toBe('RT1');
     expect(data[0].Name).toBe('Test');
     expect(data[0].Amount).toBe(100);
-    expect(data[0].Accountid).toBe('A1');
+    expect(data[0][SOLDIER_CONTACT_RID_FIELD]).toBe('A1');
     expect(data[0].CurrencyIsoCode).toBe('ILS');
   });
 
   it('only includes CRM_COLUMNS (strips internal fields)', () => {
     const crmRecords = [{
       RecordTypeId: 'RT1', Name: 'Test', Amount: 100,
-      Event__c: 'E1', Accountid: 'A1', cash_cheque_pp__c: 'Cash',
+      Event__c: 'E1', [SOLDIER_CONTACT_RID_FIELD]: 'A1', cash_cheque_pp__c: 'Cash',
       Receipt_Num__c: '123', Bank_account__c: 'Bank',
       CloseDate: '2025-01-01', StageName: 'Posted',
       Description: 'Desc', CurrencyIsoCode: 'ILS',
@@ -193,7 +193,7 @@ describe('exportCrmXlsx', () => {
   it('generates multiple rows correctly', () => {
     const row = {
       RecordTypeId: 'RT1', Name: 'A', Amount: 1,
-      Event__c: '', Accountid: '', cash_cheque_pp__c: '',
+      Event__c: '', [SOLDIER_CONTACT_RID_FIELD]: '', cash_cheque_pp__c: '',
       Receipt_Num__c: '', Bank_account__c: '', CloseDate: '',
       StageName: '', Description: '', CurrencyIsoCode: '',
     };
@@ -207,7 +207,7 @@ describe('exportCrmXlsx', () => {
   it('preserves numeric amounts without rounding', () => {
     const crmRecords = [{
       RecordTypeId: 'RT1', Name: 'Test', Amount: 1234.56,
-      Event__c: '', Accountid: '', cash_cheque_pp__c: '',
+      Event__c: '', [SOLDIER_CONTACT_RID_FIELD]: '', cash_cheque_pp__c: '',
       Receipt_Num__c: '', Bank_account__c: '', CloseDate: '',
       StageName: '', Description: '', CurrencyIsoCode: '',
     }];
@@ -231,7 +231,7 @@ describe('CRM_COLUMNS', () => {
 
   it('includes all required Salesforce fields', () => {
     expect(CRM_COLUMNS).toContain('RecordTypeId');
-    expect(CRM_COLUMNS).toContain('Accountid');
+    expect(CRM_COLUMNS).toContain(SOLDIER_CONTACT_RID_FIELD);
     expect(CRM_COLUMNS).toContain('Amount');
     expect(CRM_COLUMNS).toContain('CloseDate');
     expect(CRM_COLUMNS).toContain('StageName');
