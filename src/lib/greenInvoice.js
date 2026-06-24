@@ -256,11 +256,39 @@ function monthDateRange(selectedMonth) {
   };
 }
 
+const SOLDIER_PAYMENT_MAX_AMOUNT = 5000;
+const SOLDIER_PAYMENT_LAST_DAY = 10;
+
 function accountantReportDateRange(selectedMonth) {
   const { month, year } = selectedMonth;
   const mm = String(month + 1).padStart(2, '0');
-  const firstDay = `${year}-${mm}-01`;
-  return { fromDate: firstDay, toDate: firstDay };
+  return {
+    fromDate: `${year}-${mm}-01`,
+    toDate: `${year}-${mm}-${String(SOLDIER_PAYMENT_LAST_DAY).padStart(2, '0')}`,
+  };
+}
+
+/** Heuristic filter: soldier rent receipts are 1–10th of month, 0 < amount ≤ 5k. */
+export function isSoldierPaymentReceipt(receipt, selectedMonth) {
+  const amount = Number(receipt.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > SOLDIER_PAYMENT_MAX_AMOUNT) {
+    return false;
+  }
+
+  const { documentDate } = receipt;
+  if (!documentDate || !/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) return false;
+
+  const [y, m, d] = documentDate.split('-').map(Number);
+  const { month, year } = selectedMonth;
+  if (y !== year || m !== month + 1 || d < 1 || d > SOLDIER_PAYMENT_LAST_DAY) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterSoldierPaymentReceipts(receipts, selectedMonth) {
+  return receipts.filter(r => isSoldierPaymentReceipt(r, selectedMonth));
 }
 
 function mapDocToAccountantReceipt(doc) {
@@ -299,11 +327,11 @@ const MOCK_ACCOUNTANT_RECEIPTS = [
     payType: 4,
   },
   {
-    id: 'mock-3',
-    clientName: 'יוסי אברהם',
-    amount: 450,
-    receiptNumber: 10003,
-    documentDate: '2025-06-12',
+    id: 'mock-4',
+    clientName: 'משה גדול',
+    amount: 6000,
+    receiptNumber: 10004,
+    documentDate: '2025-06-03',
     description: 'תשלום שכר דירה חייל/ת בבית- יוני 2025',
     remarks: '',
     payType: 4,
@@ -369,15 +397,14 @@ async function searchAccountantReceiptsPage(token, fromDate, toDate, page, pageS
 }
 
 /**
- * Server Action: fetch soldier receipts (type 400 / קבלה) issued on the 1st of the month.
- * Returns { clientName, amount, receiptNumber, documentDate, description, remarks, payType, id }[].
+ * Server Action: fetch soldier payment receipts (type 400 / קבלה) for the accountant report.
+ * Searches days 1–10 of the month, then keeps receipts with 0 < amount ≤ 5,000.
  */
 export async function fetchAccountantReceipts(token, selectedMonth) {
   const { fromDate, toDate } = accountantReportDateRange(selectedMonth);
 
   if (isMock()) {
-    return MOCK_ACCOUNTANT_RECEIPTS
-      .filter(r => r.documentDate === fromDate)
+    return filterSoldierPaymentReceipts(MOCK_ACCOUNTANT_RECEIPTS, selectedMonth)
       .map(r => ({ ...r }));
   }
   const all = [];
@@ -388,7 +415,10 @@ export async function fetchAccountantReceipts(token, selectedMonth) {
     const data = await searchAccountantReceiptsPage(token, fromDate, toDate, page, pageSize);
 
     for (const doc of (data.items || [])) {
-      all.push(mapDocToAccountantReceipt(doc));
+      const mapped = mapDocToAccountantReceipt(doc);
+      if (isSoldierPaymentReceipt(mapped, selectedMonth)) {
+        all.push(mapped);
+      }
     }
 
     if (page >= (data.pages || 1)) break;

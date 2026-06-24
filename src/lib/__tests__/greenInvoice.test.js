@@ -7,7 +7,7 @@ vi.stubEnv('GREEN_INVOICE_API_URL', 'https://api.test.com/');
 vi.stubEnv('GREEN_INVOICE_KEY', 'test-key');
 vi.stubEnv('GREEN_INVOICE_SECRET', 'test-secret');
 
-const { authenticate, processOneReceipt, fetchAccountantReceipts } = await import('../greenInvoice');
+const { authenticate, processOneReceipt, fetchAccountantReceipts, isSoldierPaymentReceipt } = await import('../greenInvoice');
 
 function makeRecord(overrides = {}) {
   return {
@@ -218,13 +218,40 @@ describe('processOneReceipt', () => {
   });
 });
 
+describe('isSoldierPaymentReceipt', () => {
+  const month = { month: 5, year: 2025 };
+
+  it('accepts valid soldier payments', () => {
+    expect(isSoldierPaymentReceipt({
+      amount: 500,
+      documentDate: '2025-06-01',
+    }, month)).toBe(true);
+
+    expect(isSoldierPaymentReceipt({
+      amount: 5000,
+      documentDate: '2025-06-10',
+    }, month)).toBe(true);
+  });
+
+  it('rejects amounts outside 0–5000', () => {
+    expect(isSoldierPaymentReceipt({ amount: 0, documentDate: '2025-06-05' }, month)).toBe(false);
+    expect(isSoldierPaymentReceipt({ amount: -100, documentDate: '2025-06-05' }, month)).toBe(false);
+    expect(isSoldierPaymentReceipt({ amount: 5001, documentDate: '2025-06-05' }, month)).toBe(false);
+  });
+
+  it('rejects receipts after the 10th or outside the selected month', () => {
+    expect(isSoldierPaymentReceipt({ amount: 500, documentDate: '2025-06-11' }, month)).toBe(false);
+    expect(isSoldierPaymentReceipt({ amount: 500, documentDate: '2025-07-01' }, month)).toBe(false);
+  });
+});
+
 describe('fetchAccountantReceipts', () => {
   beforeEach(() => {
     fetch.mockReset();
     vi.stubEnv('GREEN_INVOICE_MOCK', 'false');
   });
 
-  it('searches type 400 for the 1st of the month and maps payment from search', async () => {
+  it('searches type 400 for days 1–10 of the month and maps payment from search', async () => {
     mockFetchResponse({
       errorCode: 0,
       pages: 1,
@@ -254,7 +281,7 @@ describe('fetchAccountantReceipts', () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.type).toEqual([400]);
     expect(body.fromDate).toBe('2025-06-01');
-    expect(body.toDate).toBe('2025-06-01');
+    expect(body.toDate).toBe('2025-06-10');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -287,6 +314,36 @@ describe('fetchAccountantReceipts', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(fetch.mock.calls[1][0]).toBe('https://api.test.com/documents/doc-2');
     expect(fetch.mock.calls[1][1].method).toBe('GET');
+  });
+
+  it('excludes receipts above 5,000 even when returned by search', async () => {
+    mockFetchResponse({
+      errorCode: 0,
+      pages: 1,
+      items: [
+        {
+          id: 'doc-ok',
+          number: 125,
+          amount: 500,
+          documentDate: '2025-06-05',
+          client: { name: 'תקין' },
+          payment: [{ type: 4, price: 500 }],
+        },
+        {
+          id: 'doc-high',
+          number: 126,
+          amount: 6000,
+          documentDate: '2025-06-05',
+          client: { name: 'גבוה מדי' },
+          payment: [{ type: 4, price: 6000 }],
+        },
+      ],
+    });
+
+    const result = await fetchAccountantReceipts('token', { month: 5, year: 2025 });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].clientName).toBe('תקין');
   });
 
   it('paginates through multiple search pages', async () => {
@@ -333,12 +390,8 @@ describe('fetchAccountantReceipts mock mode', () => {
 
     const result = await fetchMock('token', { month: 5, year: 2025 });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      clientName: 'שרה כהן',
-      documentDate: '2025-06-01',
-      payType: 4,
-    });
+    expect(result).toHaveLength(2);
+    expect(result.map(r => r.clientName).sort()).toEqual(['דני לוי', 'שרה כהן']);
     expect(fetch).not.toHaveBeenCalled();
 
     vi.stubEnv('GREEN_INVOICE_MOCK', 'false');
