@@ -220,29 +220,22 @@ describe('processOneReceipt', () => {
 });
 
 describe('isSoldierPaymentReceipt', () => {
-  const month = { month: 5, year: 2025 };
-
-  it('accepts valid soldier payments', () => {
+  it('accepts valid soldier payments by amount', () => {
     expect(isSoldierPaymentReceipt({
       amount: 500,
       documentDate: '2025-06-01',
-    }, month)).toBe(true);
+    })).toBe(true);
 
     expect(isSoldierPaymentReceipt({
       amount: 5000,
-      documentDate: '2025-06-10',
-    }, month)).toBe(true);
+      documentDate: '2025-06-25',
+    })).toBe(true);
   });
 
   it('rejects amounts outside 0–5000', () => {
-    expect(isSoldierPaymentReceipt({ amount: 0, documentDate: '2025-06-05' }, month)).toBe(false);
-    expect(isSoldierPaymentReceipt({ amount: -100, documentDate: '2025-06-05' }, month)).toBe(false);
-    expect(isSoldierPaymentReceipt({ amount: 5001, documentDate: '2025-06-05' }, month)).toBe(false);
-  });
-
-  it('rejects receipts after the 10th or outside the selected month', () => {
-    expect(isSoldierPaymentReceipt({ amount: 500, documentDate: '2025-06-11' }, month)).toBe(false);
-    expect(isSoldierPaymentReceipt({ amount: 500, documentDate: '2025-07-01' }, month)).toBe(false);
+    expect(isSoldierPaymentReceipt({ amount: 0, documentDate: '2025-06-05' })).toBe(false);
+    expect(isSoldierPaymentReceipt({ amount: -100, documentDate: '2025-06-05' })).toBe(false);
+    expect(isSoldierPaymentReceipt({ amount: 5001, documentDate: '2025-06-05' })).toBe(false);
   });
 });
 
@@ -252,7 +245,7 @@ describe('fetchAccountantReceipts', () => {
     vi.stubEnv('GREEN_INVOICE_MOCK', 'false');
   });
 
-  it('searches type 400 for days 1–10 of the month and maps payment from search', async () => {
+  it('searches type 400 for the full selected month and maps payment from search', async () => {
     mockFetchResponse({
       errorCode: 0,
       pages: 1,
@@ -282,7 +275,7 @@ describe('fetchAccountantReceipts', () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.type).toEqual([400]);
     expect(body.fromDate).toBe('2025-06-01');
-    expect(body.toDate).toBe('2025-06-10');
+    expect(body.toDate).toBe('2025-06-30');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

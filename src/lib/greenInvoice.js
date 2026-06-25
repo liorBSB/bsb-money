@@ -369,13 +369,13 @@ async function searchAccountantReceiptsPage(token, fromDate, toDate, page, pageS
 
 /**
  * Server Action: fetch soldier payment receipts (type 400 / קבלה) for the accountant report.
- * Searches days 1–10 of the month, then keeps receipts with 0 < amount ≤ 5,000.
+ * Searches the selected month, then keeps receipts with 0 < amount ≤ 5,000.
  */
 export async function fetchAccountantReceipts(token, selectedMonth) {
   const { fromDate, toDate } = accountantReportDateRange(selectedMonth);
 
   if (isMock()) {
-    return filterSoldierPaymentReceipts(MOCK_ACCOUNTANT_RECEIPTS, selectedMonth)
+    return filterSoldierPaymentReceipts(MOCK_ACCOUNTANT_RECEIPTS)
       .map(r => ({ ...r }));
   }
   const all = [];

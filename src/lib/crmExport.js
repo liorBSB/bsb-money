@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { findAccountId } from '@/lib/googleSheets';
 
-export const SOLDIER_CONTACT_RID_FIELD = 'Soldier_Contact__r.id';
+export const SOLDIER_CONTACT_RID_FIELD = 'Soldier_Contact__r:Contact:id_passport_in_house__c';
 
 const RECORD_TYPE_ID = '012b0000000HvT9AAK';
 const EVENT = 'soldiers HK';
@@ -78,7 +78,7 @@ const COL_WIDTHS = [
   { wch: 38 },  // Name
   { wch: 10 },  // Amount
   { wch: 14 },  // Event__c
-  { wch: 20 },  // Soldier_Contact__r.id
+  { wch: 20 },  // Soldier_Contact__r:Contact:id_passport_in_house__c
   { wch: 16 },  // cash_cheque_pp__c
   { wch: 14 },  // Receipt_Num__c
   { wch: 14 },  // Bank_account__c

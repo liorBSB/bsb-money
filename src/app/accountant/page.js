@@ -72,7 +72,7 @@ export default function AccountantPage() {
     <div className="min-h-screen px-5 py-8 md:px-8 md:py-10 max-w-[1400px] mx-auto">
       <PageHeader
         title="דוח לרואה חשבון"
-        subtitle="דוח חיוב שכר דירה מתוך קבלות (קבלה) מ-Morning בימים 1–10 בחודש, עד 5,000 ₪"
+        subtitle="דוח חיוב שכר דירה מתוך קבלות (קבלה) מ-Morning עד 5,000 ₪"
         accent={colors.secondaryText}
       />
 
@@ -164,7 +164,7 @@ export default function AccountantPage() {
           style={{ backgroundColor: colors.surface, borderColor: colors.gray400 }}
         >
           <p className="text-base font-semibold" style={{ color: colors.text }}>
-            לא נמצאו קבלות חיילים (קבלה) בימים 1–10 ב{HEBREW_MONTHS[selectedMonth.month]} {selectedMonth.year}
+            לא נמצאו קבלות חיילים (קבלה) עד 5,000 ₪ ב{HEBREW_MONTHS[selectedMonth.month]} {selectedMonth.year}
           </p>
         </div>
       )}
