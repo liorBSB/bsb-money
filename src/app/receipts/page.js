@@ -97,6 +97,12 @@ export default function ReceiptsPage() {
     setRecords(prev => prev.filter(r => r.id !== id));
   }, []);
 
+  const handleSetAllDates = useCallback((date) => {
+    setRecords(prev => prev.map(r =>
+      r.receiptStatus === 'done' ? r : { ...r, date }
+    ));
+  }, []);
+
   const handleAdd = useCallback(() => {
     setRecords(prev => [...prev, createEmptyRecord(prev.length, selectedMonth)]);
   }, [selectedMonth]);
@@ -322,6 +328,7 @@ export default function ReceiptsPage() {
             onDelete={handleDelete}
             onAdd={handleAdd}
             onRetry={handleRetryOne}
+            onSetAllDates={handleSetAllDates}
             generating={generating}
           />
 

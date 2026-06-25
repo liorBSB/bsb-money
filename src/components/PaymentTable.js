@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import colors from '@/app/colors';
 
 const PAY_TYPE_OPTIONS = [
@@ -41,7 +41,13 @@ function isCellRelevant(col, record) {
   return col.showWhen(record);
 }
 
-export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRetry, generating }) {
+export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRetry, onSetAllDates, generating }) {
+  const [bulkDate, setBulkDate] = useState(() => records[0]?.date || '');
+
+  const applyBulkDate = useCallback(() => {
+    if (bulkDate && onSetAllDates) onSetAllDates(bulkDate);
+  }, [bulkDate, onSetAllDates]);
+
   const handleCellChange = useCallback((id, key, value) => {
     let parsed = value;
     if (key === 'amount' || key === 'appType') {
@@ -76,6 +82,35 @@ export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRet
 
   return (
     <div className="mt-6">
+      <div
+        className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border p-3"
+        style={{ borderColor: colors.gray400, backgroundColor: '#fff' }}
+      >
+        <span className="text-sm font-semibold" style={{ color: colors.text }}>
+          תאריך לכל הקבלות:
+        </span>
+        <input
+          type="date"
+          value={bulkDate}
+          onChange={(e) => setBulkDate(e.target.value)}
+          disabled={generating}
+          className="rounded border px-2 py-1 text-sm"
+          style={{ borderColor: colors.gray400 }}
+        />
+        <button
+          type="button"
+          onClick={applyBulkDate}
+          disabled={generating || !bulkDate}
+          className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-40"
+          style={{ backgroundColor: colors.primaryGreen, color: colors.white }}
+        >
+          החל על כל השורות
+        </button>
+        <span className="text-xs" style={{ color: colors.muted }}>
+          משנה את התאריך בכל הקבלות שטרם הופקו (ברירת המחדל היא ה־1 בחודש)
+        </span>
+      </div>
+
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: colors.gray400 }}>
         <table className="w-full text-sm" style={{ direction: 'rtl' }}>
           <thead>
