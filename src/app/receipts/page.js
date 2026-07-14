@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import colors from '@/app/colors';
 import FileUploader from '@/components/FileUploader';
 import PageHeader from '@/components/PageHeader';
@@ -14,6 +14,7 @@ import { authenticate, processOneReceipt, searchExistingReceipts } from '@/lib/g
 import { fetchAccountIdMap } from '@/lib/googleSheets';
 import { buildCrmRecords, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
 import { buildRentChargeRecords } from '@/lib/rentChargeExport';
+import { summarizeReceiptErrors } from '@/lib/receiptErrors';
 
 export default function ReceiptsPage() {
   const { selectedMonth, setSelectedMonth } = useMonth();
@@ -31,6 +32,7 @@ export default function ReceiptsPage() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchInfo, setMatchInfo] = useState(null);
   const [rentChargeRecords, setRentChargeRecords] = useState([]);
+  const stopRef = useRef(false);
 
   const handleFileProcessed = useCallback(async (arrayBuffer, name) => {
     const reportMonth = extractReportMonth(arrayBuffer);
@@ -133,28 +135,47 @@ export default function ReceiptsPage() {
     setDone(false);
   }, []);
 
-  const runGenerate = useCallback(async (toProcess, { markDone = true } = {}) => {
+  const runGenerate = useCallback(async (toProcess, { markDone = true, stopOnError = true } = {}) => {
     setGenerating(true);
+    stopRef.current = false;
     setProgress({ current: 0, total: toProcess.length });
 
     try {
       const token = await authenticate();
 
+      let interrupted = false;
       for (let i = 0; i < toProcess.length; i++) {
+        if (stopRef.current) {
+          interrupted = true;
+          break;
+        }
+
         const result = await processOneReceipt(token, toProcess[i]);
 
         setRecords(prev =>
           prev.map(r => r.id === result.id ? { ...r, ...result } : r)
         );
         setProgress(prev => ({ ...prev, current: i + 1 }));
+
+        // Stop on the first failure so we don't hammer the API with the same
+        // error (e.g. a bad date) for every remaining record.
+        if (stopOnError && result.receiptStatus === 'error') {
+          interrupted = true;
+          break;
+        }
       }
 
-      if (markDone) setDone(true);
+      if (markDone && !interrupted) setDone(true);
     } catch (err) {
       alert('שגיאה באימות: ' + err.message);
     } finally {
       setGenerating(false);
+      stopRef.current = false;
     }
+  }, []);
+
+  const handleStopGenerating = useCallback(() => {
+    stopRef.current = true;
   }, []);
 
   const getPending = useCallback(() =>
@@ -247,6 +268,7 @@ export default function ReceiptsPage() {
   const successCount = records.filter(r => r.receiptStatus === 'done').length;
   const errorCount = records.filter(r => r.receiptStatus === 'error').length;
   const pendingCount = records.filter(r => r.receiptStatus === 'pending').length;
+  const errorSummary = !generating ? summarizeReceiptErrors(records) : null;
 
   return (
     <div className="min-h-screen px-5 py-8 md:px-8 md:py-10 max-w-[1400px] mx-auto">
@@ -322,6 +344,28 @@ export default function ReceiptsPage() {
             </div>
           )}
 
+          {errorSummary && (
+            <div
+              className="mt-6 rounded-xl border-2 p-4 flex items-start gap-3"
+              style={{
+                backgroundColor: `${colors.red}10`,
+                borderColor: colors.red,
+              }}
+            >
+              <span className="text-2xl leading-none" aria-hidden>
+                {errorSummary.kind === 'date' ? '📅' : '⚠️'}
+              </span>
+              <div>
+                <p className="text-base font-bold mb-1" style={{ color: colors.red }}>
+                  {errorSummary.title}
+                </p>
+                <p className="text-sm leading-6" style={{ color: colors.text }}>
+                  {errorSummary.detail}
+                </p>
+              </div>
+            </div>
+          )}
+
           <PaymentTable
             records={records}
             onUpdate={handleUpdate}
@@ -392,6 +436,17 @@ export default function ReceiptsPage() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-3 flex-wrap">
+              {generating && (
+                <button
+                  onClick={handleStopGenerating}
+                  className="rounded-xl px-8 py-3.5 text-base font-semibold transition-colors hover:opacity-90 flex items-center gap-2"
+                  style={{ backgroundColor: colors.red, color: '#fff' }}
+                >
+                  <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#fff' }} />
+                  עצור הפקת קבלות
+                </button>
+              )}
+
               {pendingCount > 0 && successCount === 0 && (
                 <button
                   onClick={handleTestFirst}

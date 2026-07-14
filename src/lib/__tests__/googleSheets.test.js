@@ -136,6 +136,48 @@ describe('findAccountId', () => {
       ]);
       expect(findAccountId('יוסי כהן', map)).toBe('EXACT');
     });
+
+    it('prefers exact match even when a fuzzy candidate is listed first', () => {
+      const map = createMap([
+        ['יוסי כהן הגדול', 'FUZZY'],
+        ['יוסי כהן', 'EXACT'],
+      ]);
+      expect(findAccountId('יוסי כהן', map)).toBe('EXACT');
+    });
+
+    it('prefers exact match when the sheet name has inconsistent spacing/punctuation', () => {
+      const map = createMap([
+        ['יוסי כהן הגדול', 'FUZZY'],
+        ['יוסי-כהן', 'EXACT'],
+      ]);
+      expect(findAccountId('יוסי כהן', map)).toBe('EXACT');
+    });
+  });
+
+  describe('tiered fuzzy matching', () => {
+    it('refuses to guess when two different soldiers are equally likely', () => {
+      const map = createMap([
+        ['איתן דנזגר', '111'],
+        ['איתן בובריק', '222'],
+      ]);
+      expect(findAccountId('איתן', map)).toBeNull();
+    });
+
+    it('still resolves an ambiguous first name if one is an exact full match', () => {
+      const map = createMap([
+        ['איתן דנזגר', '111'],
+        ['איתן', '222'],
+      ]);
+      expect(findAccountId('איתן', map)).toBe('222');
+    });
+
+    it('prefers a strong spelling-variant match over a weaker candidate', () => {
+      const map = createMap([
+        ['איתן בובריק', 'STRONG'],
+        ['איתן דוד', 'WEAK'],
+      ]);
+      expect(findAccountId('בורוביק איתן', map)).toBe('STRONG');
+    });
   });
 
   describe('edge cases', () => {

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import colors from '@/app/colors';
+import { interpretReceiptError } from '@/lib/receiptErrors';
 
 const PAY_TYPE_OPTIONS = [
   { value: 1, label: 'מזומן' },
@@ -12,6 +13,15 @@ const PAY_TYPE_OPTIONS = [
 ];
 
 const PAY_TYPE_LABELS = Object.fromEntries(PAY_TYPE_OPTIONS.map(o => [o.value, o.label]));
+
+const APP_TYPE_OPTIONS = [
+  { value: 1, label: 'ביט' },
+  { value: 2, label: 'Pay' },
+  { value: 3, label: 'פייבוקס' },
+  { value: 4, label: 'קולו' },
+  { value: 5, label: 'Google Pay' },
+  { value: 6, label: 'Apple Pay' },
+];
 
 const STATUS_LABELS = {
   pending: { text: 'ממתין', color: colors.muted },
@@ -29,7 +39,7 @@ const COLUMNS = [
   { key: 'amount', label: 'סכום', width: '100px', editable: true, type: 'number', required: true },
   { key: 'payType', label: 'אופן תשלום', width: '140px', editable: true, type: 'select', required: true },
   { key: 'card', label: 'כרטיס', width: '100px', editable: true, type: 'text', required: false, showWhen: (r) => r.payType === 3 },
-  { key: 'appType', label: 'אפליקציה', width: '90px', editable: true, type: 'number', required: false, showWhen: (r) => r.payType === 10 },
+  { key: 'appType', label: 'אפליקציה', width: '120px', editable: true, type: 'select', required: false, showWhen: (r) => r.payType === 10 },
   { key: 'description', label: 'תיאור', width: '150px', editable: true, type: 'text', required: false },
   { key: 'remarks', label: 'הערות', width: '240px', editable: true, type: 'textarea', required: false },
   { key: 'receiptStatus', label: 'סטטוס', width: '90px', editable: false, required: false },
@@ -153,15 +163,31 @@ export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRet
                           {rowIdx + 1}
                         </span>
                       ) : col.key === 'receiptStatus' ? (
-                        <span
-                          className="text-xs font-medium px-2 py-1 rounded-full inline-block"
-                          style={{
-                            color: STATUS_LABELS[record.receiptStatus]?.color || colors.muted,
-                            backgroundColor: `${STATUS_LABELS[record.receiptStatus]?.color || colors.muted}15`,
-                          }}
-                        >
-                          {STATUS_LABELS[record.receiptStatus]?.text || record.receiptStatus}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className="text-xs font-medium px-2 py-1 rounded-full inline-block"
+                            style={{
+                              color: STATUS_LABELS[record.receiptStatus]?.color || colors.muted,
+                              backgroundColor: `${STATUS_LABELS[record.receiptStatus]?.color || colors.muted}15`,
+                            }}
+                          >
+                            {STATUS_LABELS[record.receiptStatus]?.text || record.receiptStatus}
+                          </span>
+                          {record.receiptStatus === 'error' && (() => {
+                            const info = interpretReceiptError(record);
+                            if (!info) return null;
+                            return (
+                              <span
+                                className="text-[11px] leading-4 break-words"
+                                style={{ color: colors.red, maxWidth: '220px' }}
+                                title={record.errorMessage || info.detail}
+                              >
+                                {info.kind === 'date' ? '📅 ' : ''}
+                                {info.short}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       ) : col.key === 'receiptNumber' ? (
                         <span className="font-mono text-xs">
                           {record.receiptNumber || '—'}
@@ -180,6 +206,18 @@ export default function PaymentTable({ records, onUpdate, onDelete, onAdd, onRet
                         </select>
                       ) : !relevant ? (
                         <span className="block text-center" style={{ color: colors.gray400 }}>—</span>
+                      ) : col.key === 'appType' ? (
+                        <select
+                          value={record.appType}
+                          onChange={(e) => handleCellChange(record.id, 'appType', e.target.value)}
+                          disabled={generating || record.receiptStatus === 'done' || record.receiptStatus === 'processing'}
+                          className="w-full rounded border px-1 py-1 text-sm bg-transparent"
+                          style={{ borderColor: colors.gray400 }}
+                        >
+                          {APP_TYPE_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
                       ) : col.editable && col.type === 'textarea' ? (
                         <textarea
                           value={record[col.key] ?? ''}

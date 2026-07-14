@@ -40,6 +40,20 @@ function formatDate(d) {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Default receipt date: use today's date while working on the current month
+ * (so Green Invoice accepts it), but fall back to the 1st of the selected month
+ * when working on a different month (e.g. processing last month's payments).
+ */
+function defaultReceiptDate(selectedMonth) {
+  const { month, year } = selectedMonth;
+  const today = new Date();
+  if (today.getFullYear() === year && today.getMonth() === month) {
+    return formatDate(today);
+  }
+  return formatDate(new Date(year, month, 1));
+}
+
 const REPORT_DATE_PATTERN = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/;
 
 /**
@@ -133,7 +147,7 @@ export function processBankFile(arrayBuffer, selectedMonth) {
   }
 
   const { month, year } = selectedMonth;
-  const recordDate = formatDate(new Date(year, month, 1));
+  const recordDate = defaultReceiptDate(selectedMonth);
 
   // Drop rows that accumulated no payment — these are the Shaked report's
   // top header labels (e.g. "סכומים גדולים מ-0", account numbers) and the
@@ -153,7 +167,7 @@ export function processBankFile(arrayBuffer, selectedMonth) {
         amount,
         payType: 4,
         card: '',
-        appType: 2,
+        appType: 1,
         description: '',
         remarks: defaultRemarks(month, year),
         source: 'bank',
@@ -175,11 +189,11 @@ export function createEmptyRecord(existingCount, selectedMonth) {
     index: existingCount + 1,
     name: '',
     email: '',
-    date: formatDate(new Date(year, month, 1)),
+    date: defaultReceiptDate(selectedMonth),
     amount: 0,
     payType: 1,
     card: '',
-    appType: 2,
+    appType: 1,
     description: '',
     remarks: defaultRemarks(month, year),
     source: 'manual',

@@ -172,13 +172,13 @@ describe('processOneReceipt', () => {
     expect(body.client.emails).toEqual([]);
   });
 
-  it('uses default appType when not provided', async () => {
+  it('uses default appType (Bit) when not provided', async () => {
     mockFetchResponse({ errorCode: 0, number: 55003 });
 
     await processOneReceipt('jwt-token', makeRecord({ appType: undefined }));
 
     const body = JSON.parse(fetch.mock.calls[0][1].body);
-    expect(body.payment[0].appType).toBe(2);
+    expect(body.payment[0].appType).toBe(1);
   });
 
   it('handles empty description and remarks', async () => {

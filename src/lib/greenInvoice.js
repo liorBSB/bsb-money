@@ -93,7 +93,7 @@ function buildReceiptPayload(record) {
     chequeNum: '',
     accountId: '',
     transactionId: '',
-    appType: record.appType || 2,
+    appType: record.appType || 1,
     subType: 2,
     cardType: 0,
     cardNum: record.card || '',

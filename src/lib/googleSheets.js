@@ -1,5 +1,17 @@
 const WORD_MATCH_MIN = 0.62;
-const NAME_MATCH_MIN = 0.72;
+
+// Fuzzy name matching runs in tiers, from strictest to loosest. The matcher
+// always prefers the tightest tier that has any candidate, so a loose (and
+// possibly wrong) match can never override a tighter one.
+const NAME_MATCH_STRONG = 0.9; // near-exact: only spelling variants
+const NAME_MATCH_MEDIUM = 0.8; // clear match: reordering + minor typos
+const NAME_MATCH_MIN = 0.72; // last resort: subset / partial matches
+
+// Within the operative tier, if the top two candidates point to different
+// people and are closer than this, we refuse to guess and leave it unmatched.
+const AMBIGUITY_MARGIN = 0.05;
+
+const FUZZY_TIERS = [NAME_MATCH_STRONG, NAME_MATCH_MEDIUM, NAME_MATCH_MIN];
 
 function normalize(name) {
   return name
@@ -192,18 +204,35 @@ function scoreNameMatch(queryWords, sheetWords) {
 }
 
 function findBestFuzzyMatch(queryWords, map) {
-  let bestId = null;
-  let bestScore = 0;
-
+  const scored = [];
   for (const [sheetName, crmId] of map) {
     const score = scoreNameMatch(queryWords, wordsOf(sheetName));
-    if (score >= NAME_MATCH_MIN && score > bestScore) {
-      bestScore = score;
-      bestId = crmId;
+    if (score >= NAME_MATCH_MIN) scored.push({ crmId, score });
+  }
+  if (!scored.length) return null;
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Walk tiers strictest -> loosest and use the first tier that has any
+  // candidate. Within that tier, if the two best candidates point to different
+  // people and are too close to tell apart, refuse to guess so we never attach
+  // a donation to the wrong soldier.
+  for (const threshold of FUZZY_TIERS) {
+    const tier = scored.filter(s => s.score >= threshold);
+    if (!tier.length) continue;
+
+    const [best, runnerUp] = tier;
+    if (
+      runnerUp &&
+      runnerUp.crmId !== best.crmId &&
+      best.score - runnerUp.score < AMBIGUITY_MARGIN
+    ) {
+      return null;
     }
+    return best.crmId;
   }
 
-  return bestId;
+  return null;
 }
 
 /**
@@ -233,10 +262,19 @@ function findInMap(rawName, map) {
   const name = normalize(rawName);
   if (!name) return null;
 
-  if (map.has(name)) return map.get(name);
+  // Sheet names come in with inconsistent spacing/punctuation, so normalize
+  // the keys the same way as the query. This guarantees an exact (or reversed)
+  // name match always wins and is never overridden by a fuzzy candidate.
+  const normalizedMap = new Map();
+  for (const [sheetName, crmId] of map) {
+    const key = normalize(sheetName);
+    if (key && !normalizedMap.has(key)) normalizedMap.set(key, crmId);
+  }
+
+  if (normalizedMap.has(name)) return normalizedMap.get(name);
 
   const reversed = reverseWords(name);
-  if (map.has(reversed)) return map.get(reversed);
+  if (normalizedMap.has(reversed)) return normalizedMap.get(reversed);
 
   return findBestFuzzyMatch(wordsOf(name), map);
 }
