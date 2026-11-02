@@ -51,17 +51,30 @@ describe('authenticate', () => {
     fetch.mockReset();
   });
 
-  it('sends correct auth payload and returns token', async () => {
-    mockFetchResponse({ token: 'jwt-abc-123', expires: 1772966873 });
+  it('requests a token from the Morning OAuth endpoint and returns it', async () => {
+    mockFetchResponse({ accessToken: 'jwt-abc-123', expiresAt: 1772966873 });
 
     const { token } = await authenticate();
 
     expect(token).toBe('jwt-abc-123');
-    expect(fetch).toHaveBeenCalledWith('https://api.test.com/account/token', expect.objectContaining({
+    expect(fetch).toHaveBeenCalledWith('https://api.morning.co/idp/v1/oauth/token', expect.objectContaining({
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ id: 'test-key', secret: 'test-secret' }),
+      body: JSON.stringify({ grant_type: 'client_credentials', client_id: 'test-key', client_secret: 'test-secret' }),
     }));
+  });
+
+  it('accepts snake_case access_token responses', async () => {
+    mockFetchResponse({ access_token: 'jwt-snake', expires_in: 3600 });
+
+    const { token } = await authenticate();
+    expect(token).toBe('jwt-snake');
+  });
+
+  it('returns OAuth error descriptions', async () => {
+    mockFetchResponse({ error: 'invalid_client', error_description: 'Bad credentials' }, false, 401);
+
+    await expect(authenticate()).resolves.toEqual({ error: 'Auth failed: Bad credentials' });
   });
 
   it('also works when response includes errorCode 0', async () => {
@@ -86,7 +99,7 @@ describe('authenticate', () => {
   it('returns error when response has no token', async () => {
     mockFetchResponse({});
 
-    await expect(authenticate()).resolves.toEqual({ error: 'Auth failed: no token in response' });
+    await expect(authenticate()).resolves.toEqual({ error: 'Auth failed: no token in response (HTTP 200)' });
   });
 
   it('returns a clear error when the token endpoint body is empty', async () => {

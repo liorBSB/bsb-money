@@ -56,19 +56,33 @@ function buildApiUrl(path) {
   return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 }
 
+// Morning (formerly Green Invoice) retired POST {API}/account/token in June 2026
+// (it now returns 404). Tokens come from Morning's OAuth identity provider; the
+// documents API itself stays on GREEN_INVOICE_API_URL. Existing API keys work.
+const DEFAULT_TOKEN_URL = 'https://api.morning.co/idp/v1/oauth/token';
+const SANDBOX_TOKEN_URL = 'https://api.sandbox.morning.dev/idp/v1/oauth/token';
+
+function getTokenUrl() {
+  const override = (process.env.GREEN_INVOICE_TOKEN_URL || '').trim();
+  if (override) return override;
+  const apiUrl = (process.env.GREEN_INVOICE_API_URL || '').toLowerCase();
+  return apiUrl.includes('sandbox') ? SANDBOX_TOKEN_URL : DEFAULT_TOKEN_URL;
+}
+
 async function getToken() {
   if (isMock()) {
     return 'mock-jwt-token-for-testing';
   }
-  const res = await fetchWithTimeout(buildApiUrl('account/token'), {
+  const res = await fetchWithTimeout(getTokenUrl(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      id: getRequiredEnv('GREEN_INVOICE_KEY'),
-      secret: getRequiredEnv('GREEN_INVOICE_SECRET'),
+      grant_type: 'client_credentials',
+      client_id: getRequiredEnv('GREEN_INVOICE_KEY'),
+      client_secret: getRequiredEnv('GREEN_INVOICE_SECRET'),
     }),
   }, 15000);
 
@@ -76,10 +90,14 @@ async function getToken() {
   if (data.errorCode && data.errorCode !== 0) {
     throw new Error(`Auth failed: ${data.errorMessage || 'Unknown error'}`);
   }
-  if (!data.token) {
-    throw new Error('Auth failed: no token in response');
+  if (data.error) {
+    throw new Error(`Auth failed: ${data.error_description || data.error}`);
   }
-  return data.token;
+  const token = data.accessToken || data.access_token || data.token;
+  if (!token) {
+    throw new Error(`Auth failed: no token in response (HTTP ${res.status})`);
+  }
+  return token;
 }
 
 function buildReceiptPayload(record) {
