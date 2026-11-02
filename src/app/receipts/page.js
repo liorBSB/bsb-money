@@ -14,7 +14,7 @@ import { authenticate, processOneReceipt, searchExistingReceipts } from '@/lib/g
 import { fetchAccountIdMap } from '@/lib/googleSheets';
 import { buildCrmRecords, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
 import { buildRentChargeRecords } from '@/lib/rentChargeExport';
-import { summarizeReceiptErrors } from '@/lib/receiptErrors';
+import { summarizeReceiptErrors, unwrapAuthResult } from '@/lib/receiptErrors';
 
 export default function ReceiptsPage() {
   const { selectedMonth, setSelectedMonth } = useMonth();
@@ -74,7 +74,7 @@ export default function ReceiptsPage() {
     setMatchLoading(true);
 
     try {
-      const token = await authenticate();
+      const token = unwrapAuthResult(await authenticate());
       const { fromDate, toDate } = getMonthDateRange(selectedMonth);
       const existingDocs = await searchExistingReceipts(token, fromDate, toDate);
       const merged = matchExistingReceipts(parsed, existingDocs);
@@ -141,7 +141,7 @@ export default function ReceiptsPage() {
     setProgress({ current: 0, total: toProcess.length });
 
     try {
-      const token = await authenticate();
+      const token = unwrapAuthResult(await authenticate());
 
       let interrupted = false;
       for (let i = 0; i < toProcess.length; i++) {

@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
 import { authenticate, searchExistingReceipts } from '@/lib/greenInvoice';
+import { unwrapAuthResult } from '@/lib/receiptErrors';
 import { getMonthDateRange } from '@/lib/processBank';
 import { fetchAccountIdMap, findAccountId } from '@/lib/googleSheets';
 
@@ -195,7 +196,7 @@ export default function ReceiptLookupPage() {
     setLoading(true);
 
     try {
-      const token = await authenticate();
+      const token = unwrapAuthResult(await authenticate());
       const { fromDate, toDate } = getMonthDateRange(selectedMonth);
 
       const [docs, mapResult] = await Promise.all([

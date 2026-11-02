@@ -32,7 +32,22 @@ async function fetchWithTimeout(url, options, ms = 15000) {
     return res;
   } catch (e) {
     clearTimeout(id);
+    if (e?.name === 'AbortError') {
+      throw new Error('Green Invoice request timed out');
+    }
     throw e;
+  }
+}
+
+async function parseApiJson(res, label) {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(`${label}: empty response (HTTP ${res.status})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${label}: invalid JSON (HTTP ${res.status})`);
   }
 }
 
@@ -47,14 +62,17 @@ async function getToken() {
   }
   const res = await fetchWithTimeout(buildApiUrl('account/token'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
     body: JSON.stringify({
       id: getRequiredEnv('GREEN_INVOICE_KEY'),
       secret: getRequiredEnv('GREEN_INVOICE_SECRET'),
     }),
   }, 15000);
 
-  const data = await res.json();
+  const data = await parseApiJson(res, 'Auth');
   if (data.errorCode && data.errorCode !== 0) {
     throw new Error(`Auth failed: ${data.errorMessage || 'Unknown error'}`);
   }
@@ -147,7 +165,7 @@ async function createReceipt(token, record) {
     body: JSON.stringify(payload),
   }, 15000);
 
-  const data = await res.json();
+  const data = await parseApiJson(res, 'Create receipt');
 
   if (data.errorCode && data.errorCode !== 0) {
     return {
@@ -215,14 +233,7 @@ export async function searchExistingReceipts(token, fromDate, toDate) {
       }),
     }, 20000);
 
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      const text = await res.text();
-      console.error(`Search API returned non-JSON (${res.status}):`, text.slice(0, 200));
-      throw new Error(`Search API returned status ${res.status} (non-JSON response)`);
-    }
-
-    const data = await res.json();
+    const data = await parseApiJson(res, 'Search');
 
     if (data.errorCode && data.errorCode !== 0) {
       throw new Error(`Search failed: ${data.errorMessage || 'Unknown error'}`);
@@ -247,9 +258,15 @@ export async function searchExistingReceipts(token, fromDate, toDate) {
 
 /**
  * Server Action: authenticates and returns a JWT token.
+ * Returns `{ token }` on success or `{ error }` on failure so production
+ * builds can show the real message (thrown Server Action errors are redacted).
  */
 export async function authenticate() {
-  return await getToken();
+  try {
+    return { token: await getToken() };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unknown auth error' };
+  }
 }
 
 function monthDateRange(selectedMonth) {
@@ -318,14 +335,7 @@ async function getDocument(token, id) {
     },
   }, 20000);
 
-  const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await res.text();
-    console.error(`Get document API returned non-JSON (${res.status}):`, text.slice(0, 200));
-    throw new Error(`Get document API returned status ${res.status} (non-JSON response)`);
-  }
-
-  const data = await res.json();
+  const data = await parseApiJson(res, 'Get document');
 
   if (data.errorCode && data.errorCode !== 0) {
     throw new Error(`Get document failed: ${data.errorMessage || 'Unknown error'}`);
@@ -351,14 +361,7 @@ async function searchAccountantReceiptsPage(token, fromDate, toDate, page, pageS
     }),
   }, 20000);
 
-  const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await res.text();
-    console.error(`Search API returned non-JSON (${res.status}):`, text.slice(0, 200));
-    throw new Error(`Search API returned status ${res.status} (non-JSON response)`);
-  }
-
-  const data = await res.json();
+  const data = await parseApiJson(res, 'Search');
 
   if (data.errorCode && data.errorCode !== 0) {
     throw new Error(`Search failed: ${data.errorMessage || 'Unknown error'}`);

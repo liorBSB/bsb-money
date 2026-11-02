@@ -7,6 +7,12 @@
 // earlier month). Message: "התאריך שנבחר עתידי או מוקדם מדי לסוג מסמך זה".
 export const GI_DATE_OUT_OF_RANGE = 2405;
 
+export function unwrapAuthResult(auth) {
+  if (auth?.error) throw new Error(auth.error);
+  if (!auth?.token) throw new Error('Auth failed: no token in response');
+  return auth.token;
+}
+
 function isDateError(record) {
   if (!record) return false;
   if (record.errorCode === GI_DATE_OUT_OF_RANGE) return true;

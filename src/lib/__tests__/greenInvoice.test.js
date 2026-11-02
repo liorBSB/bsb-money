@@ -26,12 +26,23 @@ function makeRecord(overrides = {}) {
   };
 }
 
-function mockFetchResponse(data, ok = true) {
+function mockFetchResponse(data, ok = true, status = ok ? 200 : 500) {
   fetch.mockResolvedValueOnce({
     ok,
+    status,
     headers: { get: (name) => (name === 'content-type' ? 'application/json' : null) },
     json: () => Promise.resolve(data),
     text: () => Promise.resolve(JSON.stringify(data)),
+  });
+}
+
+function mockEmptyFetchResponse(status = 401) {
+  fetch.mockResolvedValueOnce({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name) => (name === 'content-type' ? 'application/json' : null) },
+    json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+    text: () => Promise.resolve(''),
   });
 }
 
@@ -43,12 +54,12 @@ describe('authenticate', () => {
   it('sends correct auth payload and returns token', async () => {
     mockFetchResponse({ token: 'jwt-abc-123', expires: 1772966873 });
 
-    const token = await authenticate();
+    const { token } = await authenticate();
 
     expect(token).toBe('jwt-abc-123');
     expect(fetch).toHaveBeenCalledWith('https://api.test.com/account/token', expect.objectContaining({
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ id: 'test-key', secret: 'test-secret' }),
     }));
   });
@@ -56,26 +67,32 @@ describe('authenticate', () => {
   it('also works when response includes errorCode 0', async () => {
     mockFetchResponse({ errorCode: 0, token: 'jwt-abc-123' });
 
-    const token = await authenticate();
+    const { token } = await authenticate();
     expect(token).toBe('jwt-abc-123');
   });
 
-  it('throws on auth failure', async () => {
+  it('returns error on auth failure', async () => {
     mockFetchResponse({ errorCode: 1, errorMessage: 'Invalid credentials' });
 
-    await expect(authenticate()).rejects.toThrow('Auth failed: Invalid credentials');
+    await expect(authenticate()).resolves.toEqual({ error: 'Auth failed: Invalid credentials' });
   });
 
-  it('throws with default message when no error message provided', async () => {
+  it('returns default message when no error message provided', async () => {
     mockFetchResponse({ errorCode: 1 });
 
-    await expect(authenticate()).rejects.toThrow('Auth failed: Unknown error');
+    await expect(authenticate()).resolves.toEqual({ error: 'Auth failed: Unknown error' });
   });
 
-  it('throws when response has no token', async () => {
+  it('returns error when response has no token', async () => {
     mockFetchResponse({});
 
-    await expect(authenticate()).rejects.toThrow('Auth failed: no token in response');
+    await expect(authenticate()).resolves.toEqual({ error: 'Auth failed: no token in response' });
+  });
+
+  it('returns a clear error when the token endpoint body is empty', async () => {
+    mockEmptyFetchResponse(401);
+
+    await expect(authenticate()).resolves.toEqual({ error: 'Auth: empty response (HTTP 401)' });
   });
 });
 

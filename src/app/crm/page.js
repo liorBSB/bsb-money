@@ -9,6 +9,7 @@ import PageHeader from '@/components/PageHeader';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
 import { authenticate, searchExistingReceipts } from '@/lib/greenInvoice';
+import { unwrapAuthResult } from '@/lib/receiptErrors';
 import { processBankFile, getMonthDateRange, matchExistingReceipts, extractReportMonth } from '@/lib/processBank';
 import { fetchAccountIdMap } from '@/lib/googleSheets';
 import { buildCrmRecords, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
@@ -67,7 +68,7 @@ export default function CrmPage() {
     setLoading(true);
 
     try {
-      const token = await authenticate();
+      const token = unwrapAuthResult(await authenticate());
       const { fromDate, toDate } = getMonthDateRange(selectedMonth);
       const existingDocs = await searchExistingReceipts(token, fromDate, toDate);
       const merged = matchExistingReceipts(parsed, existingDocs);

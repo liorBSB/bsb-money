@@ -8,6 +8,7 @@ import RentChargeTable from '@/components/RentChargeTable';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
 import { authenticate, fetchAccountantReceipts } from '@/lib/greenInvoice';
+import { unwrapAuthResult } from '@/lib/receiptErrors';
 import { buildRentChargeRecordsFromMorning } from '@/lib/rentChargeExport';
 
 export default function AccountantPage() {
@@ -35,7 +36,7 @@ export default function AccountantPage() {
     setRentRecords([]);
 
     try {
-      const token = await authenticate();
+      const token = unwrapAuthResult(await authenticate());
       const docs = await fetchAccountantReceipts(token, selectedMonth);
 
       if (!docs.length) {
