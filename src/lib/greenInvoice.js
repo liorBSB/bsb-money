@@ -1,6 +1,11 @@
 'use server';
 
 import {
+  filterReceiptsForMonth,
+  parseServiceMonth,
+  receiptSearchRange,
+} from '@/lib/receiptMonth';
+import {
   accountantReportDateRange,
   filterSoldierPaymentReceipts,
   isSoldierPaymentReceipt,
@@ -264,6 +269,9 @@ export async function searchExistingReceipts(token, fromDate, toDate) {
         receiptNumber: doc.number,
         documentDate: doc.documentDate || '',
         description: doc.description || '',
+        remarks: doc.remarks || '',
+        hasText: doc.remarks !== undefined || doc.description !== undefined,
+        id: doc.id || '',
       });
     }
 
@@ -272,6 +280,32 @@ export async function searchExistingReceipts(token, fromDate, toDate) {
   }
 
   return all;
+}
+
+/**
+ * Server Action: receipts that are FOR the selected month, even when they were
+ * issued later (catch-up receipts dated in a following month). Matches on the
+ * month written in the remarks, falling back to the issue date.
+ */
+export async function searchReceiptsForMonth(token, selectedMonth) {
+  const { fromDate, toDate } = receiptSearchRange(selectedMonth);
+  const docs = await searchExistingReceipts(token, fromDate, toDate);
+
+  // If the search API ever omits remarks, read them from the full document so
+  // a catch-up receipt isn't mistaken for this month's.
+  for (let i = 0; i < docs.length; i++) {
+    const d = docs[i];
+    if (d.hasText || !d.id) continue;
+    if (parseServiceMonth(d.remarks) || parseServiceMonth(d.description)) continue;
+    try {
+      const full = await getDocument(token, d.id);
+      docs[i] = { ...d, remarks: full.remarks || '', description: full.description || d.description };
+    } catch (err) {
+      console.error('Could not load receipt details:', d.id, err);
+    }
+  }
+
+  return filterReceiptsForMonth(docs, selectedMonth);
 }
 
 /**

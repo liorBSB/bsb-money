@@ -9,8 +9,8 @@ import CrmTable from '@/components/CrmTable';
 import RentChargeTable from '@/components/RentChargeTable';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
-import { processBankFile, createEmptyRecord, exportToExcel, downloadExcel, getMonthDateRange, matchExistingReceipts, extractReportMonth } from '@/lib/processBank';
-import { authenticate, processOneReceipt, searchExistingReceipts } from '@/lib/greenInvoice';
+import { processBankFile, createEmptyRecord, exportToExcel, downloadExcel, matchExistingReceipts, extractReportMonth } from '@/lib/processBank';
+import { authenticate, processOneReceipt, searchReceiptsForMonth } from '@/lib/greenInvoice';
 import { fetchAccountIdMap } from '@/lib/googleSheets';
 import { buildCrmRecords, SOLDIER_CONTACT_RID_FIELD } from '@/lib/crmExport';
 import { buildRentChargeRecords } from '@/lib/rentChargeExport';
@@ -75,8 +75,7 @@ export default function ReceiptsPage() {
 
     try {
       const token = unwrapAuthResult(await authenticate());
-      const { fromDate, toDate } = getMonthDateRange(selectedMonth);
-      const existingDocs = await searchExistingReceipts(token, fromDate, toDate);
+      const existingDocs = await searchReceiptsForMonth(token, selectedMonth);
       const merged = matchExistingReceipts(parsed, existingDocs);
       setRecords(merged);
 

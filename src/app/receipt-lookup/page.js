@@ -5,9 +5,8 @@ import colors from '@/app/colors';
 import PageHeader from '@/components/PageHeader';
 import MonthSelector, { HEBREW_MONTHS } from '@/components/MonthSelector';
 import { useMonth } from '@/lib/monthContext';
-import { authenticate, searchExistingReceipts } from '@/lib/greenInvoice';
+import { authenticate, searchReceiptsForMonth } from '@/lib/greenInvoice';
 import { unwrapAuthResult } from '@/lib/receiptErrors';
-import { getMonthDateRange } from '@/lib/processBank';
 import { fetchAccountIdMap, findAccountId } from '@/lib/googleSheets';
 
 function normalizeForCompare(str) {
@@ -197,10 +196,8 @@ export default function ReceiptLookupPage() {
 
     try {
       const token = unwrapAuthResult(await authenticate());
-      const { fromDate, toDate } = getMonthDateRange(selectedMonth);
-
       const [docs, mapResult] = await Promise.all([
-        searchExistingReceipts(token, fromDate, toDate),
+        searchReceiptsForMonth(token, selectedMonth),
         fetchAccountIdMap().catch(err => {
           console.error('Failed to load Salesforce account ID map:', err);
           return { map: new Map(), leftMap: new Map() };
