@@ -45,10 +45,15 @@ function formatDate(d) {
  * (so Green Invoice accepts it), but fall back to the 1st of the selected month
  * when working on a different month (e.g. processing last month's payments).
  */
+// Morning rejects receipt dates in a past month ("מוקדם מדי"), so receipts for
+// the current or an earlier month are dated today; the month they're for lives
+// in the remarks. Future months keep the 1st of that month.
 function defaultReceiptDate(selectedMonth) {
   const { month, year } = selectedMonth;
   const today = new Date();
-  if (today.getFullYear() === year && today.getMonth() === month) {
+  const selected = year * 12 + month;
+  const current = today.getFullYear() * 12 + today.getMonth();
+  if (selected <= current) {
     return formatDate(today);
   }
   return formatDate(new Date(year, month, 1));

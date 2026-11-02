@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import * as XLSX from 'xlsx';
 import { processBankFile, createEmptyRecord, exportToExcel } from '../processBank';
 
@@ -20,6 +20,15 @@ function makeRow({ name = '', amount = 0, condition = 'X' } = {}) {
   row[14] = name;        // COL_NAME (O)
   return row;
 }
+
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2025, 0, 1, 10, 0, 0));
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 describe('processBankFile', () => {
   it('groups payments by customer name', () => {
@@ -231,6 +240,19 @@ describe('createEmptyRecord', () => {
   it('sets date in YYYY-MM-DD format based on selected month', () => {
     const record = createEmptyRecord(0, selectedMonth);
     expect(record.date).toBe('2025-01-01');
+  });
+
+  it('dates catch-up receipts for a past month today (Morning rejects old dates)', () => {
+    vi.setSystemTime(new Date(2025, 2, 15, 10, 0, 0));
+    const record = createEmptyRecord(0, selectedMonth);
+    expect(record.date).toBe('2025-03-15');
+    expect(record.remarks).toBe('תשלום שכר דירה חייל/ת בבית- ינואר 2025');
+    vi.setSystemTime(new Date(2025, 0, 1, 10, 0, 0));
+  });
+
+  it('keeps the 1st of the month for a future month', () => {
+    const record = createEmptyRecord(0, { month: 3, year: 2025 });
+    expect(record.date).toBe('2025-04-01');
   });
 });
 

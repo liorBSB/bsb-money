@@ -305,8 +305,37 @@ describe('fetchAccountantReceipts', () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.type).toEqual([400]);
     expect(body.fromDate).toBe('2025-06-01');
-    expect(body.toDate).toBe('2025-06-30');
+    expect(body.toDate).toBe('2025-09-30');
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports catch-up receipts under the month in their remarks, not their issue date', async () => {
+    mockFetchResponse({
+      errorCode: 0,
+      pages: 1,
+      items: [
+        {
+          id: 'june-late', number: 201, amount: 500, documentDate: '2025-08-02',
+          remarks: 'תשלום שכר דירה חייל/ת בבית- יוני 2025',
+          client: { name: 'מאוחר' }, payment: [{ type: 4, price: 500 }],
+        },
+        {
+          id: 'may-late', number: 202, amount: 500, documentDate: '2025-06-02',
+          remarks: 'תשלום שכר דירה חייל/ת בבית- מאי 2025',
+          client: { name: 'של מאי' }, payment: [{ type: 4, price: 500 }],
+        },
+        {
+          id: 'july', number: 203, amount: 500, documentDate: '2025-07-02',
+          remarks: 'תשלום שכר דירה חייל/ת בבית- יולי 2025',
+          client: { name: 'של יולי' }, payment: [{ type: 4, price: 500 }],
+        },
+      ],
+    });
+
+    const result = await fetchAccountantReceipts('token', { month: 5, year: 2025 });
+
+    expect(result.map(r => r.clientName)).toEqual(['מאוחר']);
+    expect(result[0].documentDate).toBe('2025-08-02');
   });
 
   it('fetches document detail when payment type is missing from search', async () => {
@@ -350,6 +379,7 @@ describe('fetchAccountantReceipts', () => {
           number: 125,
           amount: 500,
           documentDate: '2025-06-05',
+          remarks: '',
           client: { name: 'תקין' },
           payment: [{ type: 4, price: 500 }],
         },
@@ -358,6 +388,7 @@ describe('fetchAccountantReceipts', () => {
           number: 126,
           amount: 6000,
           documentDate: '2025-06-05',
+          remarks: '',
           client: { name: 'גבוה מדי' },
           payment: [{ type: 4, price: 6000 }],
         },
@@ -379,6 +410,7 @@ describe('fetchAccountantReceipts', () => {
         number: 1,
         amount: 100,
         documentDate: '2025-01-01',
+        remarks: '',
         client: { name: 'א' },
         payment: [{ type: 4, price: 100 }],
       }],
@@ -392,6 +424,7 @@ describe('fetchAccountantReceipts', () => {
         number: 2,
         amount: 200,
         documentDate: '2025-01-01',
+        remarks: '',
         client: { name: 'ב' },
         payment: [{ type: 1, price: 200 }],
       }],

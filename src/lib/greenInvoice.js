@@ -6,7 +6,6 @@ import {
   receiptSearchRange,
 } from '@/lib/receiptMonth';
 import {
-  accountantReportDateRange,
   filterSoldierPaymentReceipts,
   isSoldierPaymentReceipt,
 } from '@/lib/soldierPaymentFilter';
@@ -342,6 +341,7 @@ function mapDocToAccountantReceipt(doc) {
     description: doc.description || doc.remarks || '',
     remarks: doc.remarks || '',
     payType: payment?.type ?? null,
+    hasText: doc.remarks !== undefined || doc.description !== undefined,
   };
 }
 
@@ -424,16 +424,18 @@ async function searchAccountantReceiptsPage(token, fromDate, toDate, page, pageS
 
 /**
  * Server Action: fetch soldier payment receipts (type 400 / קבלה) for the accountant report.
- * Searches the selected month, then keeps receipts with 0 < amount ≤ 5,000.
+ * Keeps receipts FOR the selected month (by the month in their remarks, falling
+ * back to the issue date), including catch-up receipts issued in later months,
+ * with 0 < amount ≤ 5,000.
  */
 export async function fetchAccountantReceipts(token, selectedMonth) {
-  const { fromDate, toDate } = accountantReportDateRange(selectedMonth);
-
   if (isMock()) {
     return filterSoldierPaymentReceipts(MOCK_ACCOUNTANT_RECEIPTS)
       .map(r => ({ ...r }));
   }
-  const all = [];
+
+  const { fromDate, toDate } = receiptSearchRange(selectedMonth);
+  let all = [];
   let page = 1;
   const pageSize = 50;
 
@@ -442,7 +444,7 @@ export async function fetchAccountantReceipts(token, selectedMonth) {
 
     for (const doc of (data.items || [])) {
       const mapped = mapDocToAccountantReceipt(doc);
-      if (isSoldierPaymentReceipt(mapped, selectedMonth)) {
+      if (isSoldierPaymentReceipt(mapped)) {
         all.push(mapped);
       }
     }
@@ -451,13 +453,26 @@ export async function fetchAccountantReceipts(token, selectedMonth) {
     page++;
   }
 
-  for (let i = 0; i < all.length; i++) {
-    if (all[i].payType != null) continue;
-    if (!all[i].id) continue;
+  const enrich = async (i) => {
     const detail = await getDocument(token, all[i].id);
     const enriched = mapDocToAccountantReceipt(detail);
-    all[i] = { ...all[i], ...enriched, id: all[i].id };
+    all[i] = { ...all[i], ...enriched, id: all[i].id, enriched: true };
+  };
+
+  // Search results without remarks can't tell us which month they're for.
+  for (let i = 0; i < all.length; i++) {
+    const r = all[i];
+    if (r.hasText || !r.id) continue;
+    if (parseServiceMonth(r.remarks) || parseServiceMonth(r.description)) continue;
+    await enrich(i);
   }
 
-  return all;
+  all = filterReceiptsForMonth(all, selectedMonth);
+
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].payType != null || all[i].enriched || !all[i].id) continue;
+    await enrich(i);
+  }
+
+  return all.map(({ hasText, enriched, ...r }) => r);
 }
